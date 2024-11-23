@@ -3,12 +3,14 @@
   "private": true,
   "version": "0.0.1",
   "author": "vactor0911@gmail.com",
-
   "scripts": {
     "start": "vite-node index.ts"
   },
-
   "dependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "cors": "^2.8.5",
+    "express": "^4.21.1",
     "vite-node": "^2.1.5"
   }
 }
