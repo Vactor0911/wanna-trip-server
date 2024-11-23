@@ -1,0 +1,14 @@
+{
+  "name": "wanna-trip",
+  "private": true,
+  "version": "0.0.1",
+  "author": "vactor0911@gmail.com",
+
+  "scripts": {
+    "start": "vite-node index.ts"
+  },
+
+  "dependencies": {
+    "vite-node": "^2.1.5"
+  }
+}
