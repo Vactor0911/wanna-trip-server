@@ -7,7 +7,7 @@ app.use(cors());
 
 // 기본 라우트 설정
 app.get("/", (req, res) => {
-  res.send("Wanna Trip Web Server!");
+  res.send("Wanna Trip Web Server!@@@@");
 });
 
 // 서버 시작
