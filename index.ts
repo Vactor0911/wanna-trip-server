@@ -123,5 +123,27 @@ app.post('/api/register', async (req: Request, res: Response) => {
   }
 });
 
+//사용자 닉네임 조회 API
+app.get('/api/user-info', async (req: Request, res: Response) => {
+  const { sendID } = req.query;
+
+  if (!sendID) {
+      return res.status(400).json({ success: false, message: '이메일 혹은 아이디가 필요합니다.' });
+  }
+
+  try {
+      const rows: any[] = await db.query('SELECT name FROM user WHERE email = ? or userId = ?', [sendID, sendID]);
+      if (rows.length === 0) {
+          return res.status(404).json({ success: false, message: '사용자를 찾을 수 없습니다.' });
+      }
+
+      const user = rows[0];
+      res.json({ success: true, message: `${user.name}님 환영합니다!`, nickname: user.name });
+  } catch (err) {
+      console.error("서버 오류 발생:", err);
+      res.status(500).json({ success: false, message: '서버 오류 발생', error: err.message });
+  }
+});
+
 
 
