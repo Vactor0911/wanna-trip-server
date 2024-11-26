@@ -4,6 +4,7 @@ import cors from "cors";
 import bodyParser from "body-parser";
 import bcrypt from 'bcrypt'; // 비밀번호 암호화 최신버전 express 에서 가지고 있다함
 import dotenv from 'dotenv'; // 환경 변수 사용한 민감한 정보 관리
+import axios from 'axios'; // HTTP 요청을 위한 라이브러리
 
 
 // .env 파일 로드
@@ -14,7 +15,6 @@ const PORT = 3005; // 서버가 실행될 포트 번호
 const app = express();
 app.use(cors());
 app.use(bodyParser.json());
-
 
 // MariaDB 연결 (createPool 사용)
 const db = MariaDB.createPool({
@@ -39,7 +39,6 @@ db.getConnection()
     });
 
 
-
 // 기본 라우트 설정
 app.get("/", (req, res) => {
   res.send("Wanna Trip Web Server!");
@@ -52,27 +51,38 @@ app.listen(PORT, "0.0.0.0", () => {
 
 
 
-
-// 사용자 로그인 API
+// 사용자 로그인 API 시작
 app.post('/api/login', async (req: Request, res: Response) => {
-  const { sendID, password } = req.body as { sendID: string; password: string };
-  console.log("로그인 요청 받은 데이터:", { sendID, password });
+  const { email, password } = req.body as { email: string; password: string };
+  console.log("로그인 요청 받은 데이터:", { email, password });
 
   try {
-      // 이메일만으로 로그인 가능하도록 구현 테이블 변경
-      // 이메일 또는 아이디로 사용자 조회
-      const rows = await db.query(
-          'SELECT * FROM user WHERE email = ? OR userId = ?', [sendID, sendID]
-      );
+      // 이메일로 사용자 조회
+      const rows = await db.query('SELECT * FROM user WHERE email = ?', [email]);
       console.log("사용자 조회 결과:", rows);
 
+      // 사용자가 없는 경우
       if (rows.length === 0) {
-          console.log("사용자를 찾을 수 없습니다:", sendID);
-          return res.status(401).json({ success: false, message: '사용자를 찾을 수 없습니다' });
+          console.log("사용자를 찾을 수 없습니다:", email);
+          return res.status(401).json({ 
+              success: false, 
+              message: '사용자를 찾을 수 없습니다. 회원가입 후 이용해주세요.' 
+          });
+      }
+
+      const user = rows[0];
+
+      // 간편 로그인 사용자 확인
+      if (user.loginType !== 'normal') { 
+          console.log("간편 로그인 사용자는 일반 로그인을 사용할 수 없습니다:", email);
+          return res.status(401).json({ 
+              success: false, 
+              message: '간편 로그인 사용자는 일반 로그인을 사용할 수 없습니다. 간편 로그인으로 이용해주세요.' 
+          });
       }
 
       // 암호화된 비밀번호 가져오기
-      const user_password = rows[0].password;
+      const user_password = user.password;
       console.log("DB에 저장된 비밀번호:", user_password);
 
       // 비밀번호 비교
@@ -83,19 +93,133 @@ app.post('/api/login', async (req: Request, res: Response) => {
       }
 
       // 로그인 성공
-      console.log("로그인 성공:", sendID);
-      res.json({ success: true, message: '로그인 성공' });
+      const nickname = user.name; // DB의 name 필드를 닉네임으로 사용
+      console.log("로그인 성공:", email, nickname, "님");
+      res.json({ 
+          success: true, 
+          message: '로그인 성공', 
+          nickname: nickname // 닉네임 반환
+      });
   } catch (err) {
       console.error("서버 오류 발생:", err);
       res.status(500).json({ success: false, message: '서버 오류 발생', error: err.message });
   }
+}); // 사용자 로그인 API 끝
+
+
+// 로그아웃 API 추가
+app.post('/api/logout', async (req: Request, res: Response) => {
+  const { email, token } = req.body;
+
+  try {
+    // DB에서 사용자 조회
+    const rows = await db.query("SELECT * FROM user WHERE email = ?", [email]);
+
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, message: "사용자를 찾을 수 없습니다." });
+    }
+
+    const storedToken = rows[0].token;
+    const loginType = rows[0].loginType;
+
+    // 간편 로그인 사용자(카카오)의 경우 토큰 검증
+    if (loginType === "kakao" && storedToken !== token) {
+      return res.status(401).json({ success: false, message: "잘못된 토큰입니다." });
+    }
+
+    // 로그아웃 처리: 토큰 필드를 null로 업데이트
+    await db.query("UPDATE user SET token = NULL WHERE email = ?", [email]);
+
+    console.log(`사용자 [${email}] 로그아웃 성공`);
+    res.status(200).json({ success: true, message: "로그아웃이 성공적으로 완료되었습니다." });
+  } catch (err) {
+    console.error("로그아웃 처리 중 오류 발생:", err);
+    res.status(500).json({ success: false, message: "로그아웃 처리 중 오류가 발생했습니다." });
+  }
 });
+ // 로그아웃 API 끝
+
+
+
+// 카카오 간편 로그인 API 시작
+app.post('/api/login/kakao', async (req: Request, res: Response) => {
+  const { email, name, loginType, token } = req.body; // 클라이언트에서 전달된 사용자 정보
+
+  try {
+    // Access Token 유효성 검증
+    const kakaoResponse = await axios.get("https://kapi.kakao.com/v2/user/me", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (kakaoResponse.status !== 200) {
+      return res.status(401).json({ success: false, message: "잘못된 토큰 또는 만료된 토큰" });
+    }
+
+    // DB에서 사용자 조회
+    const rows = await db.query("SELECT * FROM user WHERE email = ?", [email]);
+    if (rows.length === 0) {
+      // 사용자 등록
+      await db.query(
+        "INSERT INTO user (email, name, loginType, token) VALUES (?, ?, ?, ?)",
+        [email, name, loginType, token]
+      );
+    } else {
+      // 기존 사용자 정보 업데이트
+      await db.query(
+        "UPDATE user SET name = ?, loginType = ?, token = ? WHERE email = ?",
+        [name, loginType, token, email]
+      );
+    }
+
+    // 성공 응답
+    res.status(200).json({
+      success: true,
+      message: `${name} 님 환영합니다!`,
+      email,
+      name,
+      loginType,
+    });
+  } catch (err) {
+    console.error("카카오 간편 로그인 처리 실패:", err);
+    res.status(500).json({ success: false, message: "카카오 로그인 실패" });
+  }
+});  //카카오 간편 로그인 API 끝
+
+// 토큰 리프레시 API 시작
+app.post('/api/token/refresh', async (req: Request, res: Response) => {
+  const { email } = req.body;
+
+  try {
+    const rows = await db.query("SELECT refreshToken FROM user WHERE email = ?", [email]);
+    if (rows.length === 0 || !rows[0].refreshToken) {
+      return res.status(401).json({ success: false, message: "Refresh Token이 없습니다." });
+    }
+
+    const refreshToken = rows[0].refreshToken;
+    const response = await axios.post("https://kauth.kakao.com/oauth/token", null, {
+      params: {
+        grant_type: "refresh_token",
+        client_id: process.env.KAKAO_CLIENT_ID,
+        refresh_token: refreshToken,
+      },
+    });
+
+    const newAccessToken = response.data.access_token;
+    res.status(200).json({ success: true, token: newAccessToken });
+  } catch (err) {
+    console.error("토큰 갱신 실패:", err);
+    res.status(500).json({ success: false, message: "토큰 갱신 실패" });
+  }
+}); // 토큰 리프레시 API 끝
+
+
+
 
 
 // 사용자 회원가입 API
 app.post('/api/register', async (req: Request, res: Response) => {
-  const { userId, password, email, name } = req.body as { userId: string; password: string; email: string; name: string;};
-  console.log("받은 데이터:", { userId, password, email, name });
+  const { email, password, name } = req.body as {  email: string; password: string; name: string;};
+  console.log("받은 데이터:", {  email, password, name });
 
   try {
       // 이메일 중복 확인
@@ -104,15 +228,15 @@ app.post('/api/register', async (req: Request, res: Response) => {
           console.log("이메일이 이미 존재합니다:", email);
           return res.status(400).json({ success: false, message: '이메일이 이미 존재합니다' });
       }
-
+      
       // 비밀번호 암호화
       const hashedPassword = await bcrypt.hash(password, 10);
       console.log("Hashed password:", hashedPassword);
 
       // 사용자 저장
       const result = await db.query(
-          'INSERT INTO user (userId, email, password, plain_password, name) VALUES (?, ?, ?, ?, ?)',
-          [userId, email, hashedPassword, password, name]
+          'INSERT INTO user (email, password, plain_password, name) VALUES (?, ?, ?, ?)',
+          [ email, hashedPassword, password, name]
       );
       console.log("사용자 삽입 결과:", result);
 
@@ -125,14 +249,14 @@ app.post('/api/register', async (req: Request, res: Response) => {
 
 //사용자 닉네임 조회 API
 app.get('/api/user-info', async (req: Request, res: Response) => {
-  const { sendID } = req.query;
+  const { email } = req.query;
 
-  if (!sendID) {
-      return res.status(400).json({ success: false, message: '이메일 혹은 아이디가 필요합니다.' });
+  if (!email) {
+      return res.status(400).json({ success: false, message: '이메일이 필요합니다.' });
   }
 
   try {
-      const rows: any[] = await db.query('SELECT name FROM user WHERE email = ? or userId = ?', [sendID, sendID]);
+      const rows: any[] = await db.query('SELECT name FROM user WHERE email = ?', [email]);
       if (rows.length === 0) {
           return res.status(404).json({ success: false, message: '사용자를 찾을 수 없습니다.' });
       }
@@ -144,6 +268,49 @@ app.get('/api/user-info', async (req: Request, res: Response) => {
       res.status(500).json({ success: false, message: '서버 오류 발생', error: err.message });
   }
 });
+
+
+// 사용자 탈퇴 API handleAccountDeleteClick
+app.post('/api/account-delete', async (req: Request, res: Response) => {
+    const { email, password } = req.body as { email: string; password: string };
+    console.log("탈퇴 요청 받은 데이터:", { email, password });
+  
+    try {
+      // 사용자를 이메일로 조회
+      const rows = await db.query('SELECT * FROM user WHERE email = ?', [email]);
+      console.log("사용자 조회 결과:", rows);
+  
+      if (rows.length === 0) {
+        console.log("사용자를 찾을 수 없습니다:", email);
+        return res.status(404).json({ success: false, message: '사용자를 찾을 수 없습니다.' });
+      }
+  
+      // 암호화된 비밀번호 확인
+      const user_password = rows[0].password;
+      console.log("DB에 저장된 비밀번호:", user_password);
+  
+      const isPasswordMatch = await bcrypt.compare(password, user_password);
+      if (!isPasswordMatch) {
+        console.log("비밀번호가 일치하지 않습니다");
+        return res.status(401).json({ success: false, message: '비밀번호가 일치하지 않습니다.' });
+      }
+  
+      // 사용자의 status를 'inactive'로 업데이트
+      const updateResult = await db.query('UPDATE user SET status = ? WHERE email = ?', ['inactive', email]);
+      console.log("탈퇴 처리 결과:", updateResult);
+  
+      if (updateResult.affectedRows === 0) {
+        return res.status(500).json({ success: false, message: '계정 탈퇴 처리에 실패하였습니다.' });
+      }
+  
+      console.log(`사용자 [ ${email}] 의 계정이 탈퇴되었습니다.`);
+      res.status(200).json({ success: true, message: '계정이 성공적으로 탈퇴되었습니다.' });
+    } catch (err) {
+      console.error("서버 오류 발생:", err);
+      res.status(500).json({ success: false, message: '서버 오류 발생', error: err.message });
+    }
+  });
+  
 
 
 
