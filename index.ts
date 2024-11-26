@@ -247,6 +247,41 @@ app.post('/api/register', async (req: Request, res: Response) => {
   }
 });
 
+// *** 이메일 중복 검사 API
+app.post('/api/emailCheck', async (req: Request, res: Response) => {
+  const { email } = req.body as { email: string };
+
+  console.log("이메일 중복 검사 요청 받은 데이터:", { email });
+
+  try {
+    // 이메일을 기준으로 사용자 조회
+    const rows = await db.query('SELECT userId, email FROM user WHERE email = ?', [email]);
+    console.log("이메일 조회 결과:", rows);
+
+    if (rows.length > 0) {
+      // 이미 이메일이 존재하는 경우
+      console.log("이미 존재하는 이메일:", email);
+      return res.status(200).json({
+        success: false,
+        message: '이미 사용 중인 이메일입니다.',
+      });
+    }
+
+    // 이메일이 없는 경우
+    console.log("사용 가능한 이메일:", email);
+    return res.status(200).json({
+      success: true,
+      message: '사용 가능한 이메일입니다.',
+    });
+  } catch (err) {
+    console.error("이메일 중복 검사 중 서버 오류 발생:", err);
+    return res.status(500).json({
+      success: false,
+      message: '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
+    });
+  }
+}); // *** 이메일 중복 검사 API 끝
+
   
 
 
