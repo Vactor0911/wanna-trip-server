@@ -51,7 +51,7 @@ app.listen(PORT, "0.0.0.0", () => {
 
 
 
-// 사용자 로그인 API 시작
+// *** 사용자 로그인 API 시작
 app.post('/api/login', async (req: Request, res: Response) => {
   const { email, password } = req.body as { email: string; password: string };
   console.log("로그인 요청 받은 데이터:", { email, password });
@@ -94,7 +94,7 @@ app.post('/api/login', async (req: Request, res: Response) => {
 
       // 로그인 성공
       const nickname = user.name; // DB의 name 필드를 닉네임으로 사용
-      console.log("로그인 성공:", email, nickname, "님");
+      console.log(`[${email}] ${nickname}님 로그인 성공`);
       res.json({ 
           success: true, 
           message: '로그인 성공', 
@@ -107,7 +107,7 @@ app.post('/api/login', async (req: Request, res: Response) => {
 }); // 사용자 로그인 API 끝
 
 
-// 로그아웃 API 추가
+// *** 로그아웃 API 추가
 app.post('/api/logout', async (req: Request, res: Response) => {
   const { email, token } = req.body;
 
@@ -141,7 +141,7 @@ app.post('/api/logout', async (req: Request, res: Response) => {
 
 
 
-// 카카오 간편 로그인 API 시작
+// *** 카카오 간편 로그인 API 시작
 app.post('/api/login/kakao', async (req: Request, res: Response) => {
   const { email, name, loginType, token } = req.body; // 클라이언트에서 전달된 사용자 정보
 
@@ -171,6 +171,8 @@ app.post('/api/login/kakao', async (req: Request, res: Response) => {
       );
     }
 
+    console.log(`[${email}] 로그인 성공`);
+
     // 성공 응답
     res.status(200).json({
       success: true,
@@ -179,13 +181,14 @@ app.post('/api/login/kakao', async (req: Request, res: Response) => {
       name,
       loginType,
     });
+
   } catch (err) {
     console.error("카카오 간편 로그인 처리 실패:", err);
     res.status(500).json({ success: false, message: "카카오 로그인 실패" });
   }
 });  //카카오 간편 로그인 API 끝
 
-// 토큰 리프레시 API 시작
+// *** 토큰 리프레시 API 시작
 app.post('/api/token/refresh', async (req: Request, res: Response) => {
   const { email } = req.body;
 
@@ -213,10 +216,7 @@ app.post('/api/token/refresh', async (req: Request, res: Response) => {
 }); // 토큰 리프레시 API 끝
 
 
-
-
-
-// 사용자 회원가입 API
+// *** 사용자 회원가입 API
 app.post('/api/register', async (req: Request, res: Response) => {
   const { email, password, name } = req.body as {  email: string; password: string; name: string;};
   console.log("받은 데이터:", {  email, password, name });
@@ -247,69 +247,6 @@ app.post('/api/register', async (req: Request, res: Response) => {
   }
 });
 
-//사용자 닉네임 조회 API
-app.get('/api/user-info', async (req: Request, res: Response) => {
-  const { email } = req.query;
-
-  if (!email) {
-      return res.status(400).json({ success: false, message: '이메일이 필요합니다.' });
-  }
-
-  try {
-      const rows: any[] = await db.query('SELECT name FROM user WHERE email = ?', [email]);
-      if (rows.length === 0) {
-          return res.status(404).json({ success: false, message: '사용자를 찾을 수 없습니다.' });
-      }
-
-      const user = rows[0];
-      res.json({ success: true, message: `${user.name}님 환영합니다!`, nickname: user.name });
-  } catch (err) {
-      console.error("서버 오류 발생:", err);
-      res.status(500).json({ success: false, message: '서버 오류 발생', error: err.message });
-  }
-});
-
-
-// 사용자 탈퇴 API handleAccountDeleteClick
-app.post('/api/account-delete', async (req: Request, res: Response) => {
-    const { email, password } = req.body as { email: string; password: string };
-    console.log("탈퇴 요청 받은 데이터:", { email, password });
-  
-    try {
-      // 사용자를 이메일로 조회
-      const rows = await db.query('SELECT * FROM user WHERE email = ?', [email]);
-      console.log("사용자 조회 결과:", rows);
-  
-      if (rows.length === 0) {
-        console.log("사용자를 찾을 수 없습니다:", email);
-        return res.status(404).json({ success: false, message: '사용자를 찾을 수 없습니다.' });
-      }
-  
-      // 암호화된 비밀번호 확인
-      const user_password = rows[0].password;
-      console.log("DB에 저장된 비밀번호:", user_password);
-  
-      const isPasswordMatch = await bcrypt.compare(password, user_password);
-      if (!isPasswordMatch) {
-        console.log("비밀번호가 일치하지 않습니다");
-        return res.status(401).json({ success: false, message: '비밀번호가 일치하지 않습니다.' });
-      }
-  
-      // 사용자의 status를 'inactive'로 업데이트
-      const updateResult = await db.query('UPDATE user SET status = ? WHERE email = ?', ['inactive', email]);
-      console.log("탈퇴 처리 결과:", updateResult);
-  
-      if (updateResult.affectedRows === 0) {
-        return res.status(500).json({ success: false, message: '계정 탈퇴 처리에 실패하였습니다.' });
-      }
-  
-      console.log(`사용자 [ ${email}] 의 계정이 탈퇴되었습니다.`);
-      res.status(200).json({ success: true, message: '계정이 성공적으로 탈퇴되었습니다.' });
-    } catch (err) {
-      console.error("서버 오류 발생:", err);
-      res.status(500).json({ success: false, message: '서버 오류 발생', error: err.message });
-    }
-  });
   
 
 
