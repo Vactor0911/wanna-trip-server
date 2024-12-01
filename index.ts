@@ -158,8 +158,11 @@ app.post('/api/logout', async (req: Request, res: Response) => {
     // Step 3: 토큰 및 RefreshToken 제거
     await db.query("UPDATE user SET token = NULL, refreshToken = NULL WHERE email = ?", [email]);
 
+    console.log(`[${email}] 님의 로그아웃이 성공적으로 완료되었습니다.`);
+
     // Step 4: 성공 응답 반환
     res.status(200).json({ success: true, message: "로그아웃이 성공적으로 완료되었습니다." });
+    
   } catch (err) {
     // Step 5: 에러 처리
     console.error("로그아웃 처리 중 오류 발생:", err);
