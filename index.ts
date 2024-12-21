@@ -102,6 +102,15 @@ app.post("/api/login", (req: Request, res: Response) => {
           success: true,
           message: "로그인 성공",
           nickname: nickname, // 닉네임 반환
+          userId : user.userId // 사용자 ID 반환
+        });
+
+        // Step 5: 터미널에 반환 정보 출력
+        console.log("반환 정보:", {
+          success: true,
+          message: "로그인 성공",
+          nickname: nickname,
+          userId: user.userId,
         });
       });
     })
@@ -233,33 +242,49 @@ app.post("/api/login/kakao", (req: Request, res: Response) => {
           }
         })
         .then(() => {
-          // Step 4: AccessToken 생성
-          const accessToken = jwt.sign(
-            { email: kakaoEmail, name: kakaoName },
-            process.env.JWT_SECRET_KEY as string,
-            { expiresIn: "1h" }
-          );
-
-          // Step 5: RefreshToken 생성
-          const refreshToken = crypto.randomBytes(32).toString("hex");
-
-          // Step 6: RefreshToken 및 AccessToken 저장
+          // Step 4: 사용자 ID 조회
           return db
-            .query(
-              "UPDATE user SET token = ?, refreshToken = ? WHERE email = ?",
-              [accessToken, refreshToken, kakaoEmail]
-            )
-            .then(() => {
-              // Step 7: 클라이언트로 응답 반환
-              res.status(200).json({
-                success: true,
-                message: `[ ${kakaoName} ] 님 환영합니다!`,
-                email: kakaoEmail,
-                name: kakaoName,
-                loginType: "kakao",
-                accessToken,
-                refreshToken, // 클라이언트에 RefreshToken 반환
-              });
+            .query("SELECT * FROM user WHERE email = ?", [kakaoEmail])
+            .then((rows: any) => {
+              const user = rows[0];
+
+              // Step 5: AccessToken 생성
+              const accessToken = jwt.sign(
+                { email: kakaoEmail, name: kakaoName },
+                process.env.JWT_SECRET_KEY as string,
+                { expiresIn: "1h" }
+              );
+
+              // Step 6: RefreshToken 생성
+              const refreshToken = crypto.randomBytes(32).toString("hex");
+
+              // Step 7: RefreshToken 및 AccessToken 저장
+              return db
+                .query(
+                  "UPDATE user SET token = ?, refreshToken = ? WHERE email = ?",
+                  [accessToken, refreshToken, kakaoEmail]
+                )
+                .then(() => {
+                  // Step 8: 클라이언트로 응답 반환
+                  res.status(200).json({
+                    success: true,
+                    message: `[ ${kakaoName} ] 님 환영합니다!`,
+                    userId: user.userId, // 사용자 ID 반환
+                    email: kakaoEmail,
+                    name: kakaoName,
+                    loginType: "kakao",
+                    accessToken,
+                    refreshToken, // 클라이언트에 RefreshToken 반환
+                  });
+                  console.log("반환 정보:", {
+                    success: true,
+                    message: `[ ${kakaoName} ] 님 환영합니다!`,
+                    userId: user.userId,
+                    email: kakaoEmail,
+                    name: kakaoName,
+                    loginType: "kakao",
+                  });
+                });
             });
         });
     })
@@ -271,7 +296,7 @@ app.post("/api/login/kakao", (req: Request, res: Response) => {
         message: "카카오 로그인 처리 중 오류가 발생했습니다.",
       });
     });
-}); // *** 카카오 간편 로그인 API 끝
+}); // *** 카카오 간편 로그인 API 끝 ***
 
 // *** 구글 간편 로그인 API 시작
 app.post("/api/login/google", async (req: Request, res: Response) => {
@@ -315,11 +340,21 @@ app.post("/api/login/google", async (req: Request, res: Response) => {
     res.status(200).json({
       success: true,
       message: `[ ${name} ] 님 환영합니다!`,
+      userId: rows[0].userId, // 사용자 ID 반환
       email,
       name,
       loginType: "google",
       accessToken,
       refreshToken, // 클라이언트에 반환
+    });
+    // Step 8: 터미널에 반환 정보 출력
+    console.log("반환 정보:", {
+      success: true,
+      message: `[ ${name} ] 님 환영합니다!`,
+      userId: rows[0].userId,
+      email,
+      name,
+      loginType: "google",
     });
   } catch (err) {
     console.error("구글 로그인 처리 중 오류 발생:", err);
@@ -452,6 +487,172 @@ app.post("/api/emailCheck", (req: Request, res: Response) => {
       });
     });
 }); // *** 이메일 중복 검사 API 끝
+
+
+
+// *** 템플릿, 보드, 카드 업데이트 API 시작 ***
+app.post("/api/update-template", (req: Request, res: Response) => {
+  const { action, data } = req.body;
+
+  switch (action) {
+    // 시간 업데이트
+    case "updateTime": {
+      const { cardId, timeStart, timeEnd } = data;
+
+      // 유효성 검사: 시간 형식이 00:00 ~ 24:00인지 확인
+      const isValidTime = (time: string) => /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(time);
+
+      if (!isValidTime(timeStart) || !isValidTime(timeEnd)) {
+        res.status(400).json({
+          success: false,
+          message: "시간은 00:00 ~ 24:00 사이여야 합니다.",
+        });
+        return
+      }
+
+      if (timeStart >= timeEnd) {
+        res.status(400).json({
+          success: false,
+          message: "시작 시간이 종료 시간보다 이전이어야 합니다.",
+        });
+        return;
+      }
+
+      // Step 1: 선택된 카드 업데이트
+      db.query(
+        "UPDATE card SET timeStart = ?, timeEnd = ? WHERE cardId = ?",
+        [timeStart, timeEnd, cardId]
+      )
+        .then(() => {
+          // Step 2: 동일한 보드의 다른 카드 가져오기
+          return db.query(
+            `
+            SELECT * 
+            FROM card 
+            WHERE cardId != ? 
+              AND position LIKE CONCAT(SUBSTRING_INDEX(
+                (SELECT position FROM card WHERE cardId = ?), ',', 1), ',%') 
+            ORDER BY timeStart
+          `,
+            [cardId, cardId]
+          );
+        })
+        .then((rows: any[]) => {
+          let previousEndTime = timeEnd;
+          const updates: Promise<any>[] = [];
+
+          for (const card of rows) {
+            if (card.timeStart < previousEndTime) {
+              // Step 3: 카드가 겹치는 경우 시간 재배치
+              const duration =
+                new Date(`1970-01-01T${card.timeEnd}:00Z`).getTime() -
+                new Date(`1970-01-01T${card.timeStart}:00Z`).getTime();
+              const newStartTime = new Date(`1970-01-01T${previousEndTime}:00Z`);
+              const newEndTime = new Date(newStartTime.getTime() + duration);
+
+              const formattedStart = newStartTime.toISOString().slice(11, 16);
+              const formattedEnd = newEndTime.toISOString().slice(11, 16);
+
+              updates.push(
+                db.query<any>("UPDATE card SET timeStart = ?, timeEnd = ? WHERE cardId = ?", [
+                  formattedStart,
+                  formattedEnd,
+                  card.cardId,
+                ])
+              );
+
+              previousEndTime = formattedEnd;
+            } else {
+              // Step 4: 카드가 겹치지 않는 경우, 다음 종료 시간 업데이트
+              previousEndTime = card.timeEnd;
+            }
+          }
+
+          return Promise.all(updates);
+        })
+        .then(() => {
+          res.status(200).json({ success: true, message: "시간 업데이트 완료" });
+        })
+        .catch((err) => {
+          console.error("시간 업데이트 오류:", err);
+          res.status(500).json({ success: false, message: "시간 업데이트 실패" });
+        });
+      break;
+    }
+
+    // 내용 업데이트
+    case "updateContent": {
+      const { cardId: contentCardId, content } = data;
+
+      db.query("UPDATE card SET content = ? WHERE cardId = ?", [content, contentCardId])
+        .then(() => {
+          res.status(200).json({ success: true, message: "내용 업데이트 완료" });
+        })
+        .catch((err) => {
+          console.error("내용 업데이트 오류:", err);
+          res.status(500).json({ success: false, message: "내용 업데이트 실패" });
+        });
+      break;
+    }
+
+    // 보드 위치 교환
+    case "swapBoardPosition": {
+      const { board1Position, board2Position } = data;
+
+      if (!board1Position || !board2Position) {
+        res.status(400).json({ success: false, message: "잘못된 요청" });
+        return;
+      }
+
+      const [board1Day] = board1Position.split(","); // "0"
+      const [board2Day] = board2Position.split(","); // "1"
+
+      // Step 2: 모든 카드의 day 값을 교환
+      db.query(
+        "UPDATE card SET position = REPLACE(position, ?, 'temp') WHERE position LIKE CONCAT(?, ',%')",
+        [board1Day, board1Day]
+      )
+        .then(() =>
+          db.query(
+            "UPDATE card SET position = REPLACE(position, ?, ?) WHERE position LIKE CONCAT(?, ',%')",
+            [board2Day, board1Day, board2Day]
+          )
+        )
+        .then(() =>
+          db.query(
+            "UPDATE card SET position = REPLACE(position, 'temp', ?) WHERE position LIKE 'temp,%'",
+            [board2Day]
+          )
+        )
+        .then(() => {
+          res.status(200).json({ success: true, message: "보드 위치 교환 완료" });
+          console.log(`보드 위치가 교환되었습니다: ${board1Position} <-> ${board2Position}`);
+        })
+        .catch((err) => {
+          console.error("보드 위치 교환 오류:", err);
+          res.status(500).json({ success: false, message: "보드 위치 교환 실패" });
+        });
+      break;
+    }
+
+    default:
+      res.status(400).json({ success: false, message: "잘못된 요청" });
+  }
+});
+// *** 템플릿, 보드, 카드 업데이트 API 끝 ***
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 // # [ 작업 핸들링 API ] #
 app.post("/api/get-task", (req: Request, res: Response) => {
