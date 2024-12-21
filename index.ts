@@ -46,11 +46,11 @@ app.listen(PORT, "0.0.0.0", () => {
   console.log(`서버가 ${PORT}번 포트에서 실행 중입니다.`);
 });
 
-
 // ----------------- API 라우트 -----------------
 
+// # [ 로그인, 회원가입 API ] #
 
-// *** 사용자 로그인 API 시작
+// *** 사용자 로그인 API 시작 ***
 app.post("/api/login", (req: Request, res: Response) => {
   const { email, password } = req.body;
 
@@ -115,7 +115,6 @@ app.post("/api/login", (req: Request, res: Response) => {
       });
     });
 }); // 사용자 로그인 API 끝
-
 
 // *** 로그아웃 API 수정 ***
 app.post("/api/logout", async (req: Request, res: Response) => {
@@ -191,7 +190,6 @@ app.post("/api/logout", async (req: Request, res: Response) => {
     });
   }
 }); // *** 로그아웃 API 끝 ***
-
 
 // *** 카카오 간편 로그인 API 시작
 app.post("/api/login/kakao", (req: Request, res: Response) => {
@@ -275,7 +273,6 @@ app.post("/api/login/kakao", (req: Request, res: Response) => {
     });
 }); // *** 카카오 간편 로그인 API 끝
 
-
 // *** 구글 간편 로그인 API 시작
 app.post("/api/login/google", async (req: Request, res: Response) => {
   const { email, name } = req.body;
@@ -333,7 +330,6 @@ app.post("/api/login/google", async (req: Request, res: Response) => {
   }
 }); // *** 구글 간편 로그인 API 끝
 
-
 // *** 토큰 리프레시 API 시작
 app.post("/api/token/refresh", async (req: Request, res: Response) => {
   const { email, refreshToken, loginType } = req.body;
@@ -372,7 +368,6 @@ app.post("/api/token/refresh", async (req: Request, res: Response) => {
   }
 }); // 토큰 리프레시 API 끝
 
-
 // *** 사용자 회원가입 API 시작
 app.post("/api/register", (req: Request, res: Response) => {
   const { email, password, name } = req.body as {
@@ -400,8 +395,8 @@ app.post("/api/register", (req: Request, res: Response) => {
 
       // Step 3: 사용자 저장
       return db.query(
-        "INSERT INTO user (email, password, plain_password, name) VALUES (?, ?, ?, ?)",
-        [email, hashedPassword, password, name]
+        "INSERT INTO user (email, password, name) VALUES (?, ?, ?)",
+        [email, hashedPassword, name]
       );
     })
     .then((result: any) => {
@@ -421,7 +416,6 @@ app.post("/api/register", (req: Request, res: Response) => {
     });
 }); // *** 사용자 회원가입 API 끝
 
-
 // *** 이메일 중복 검사 API
 app.post("/api/emailCheck", (req: Request, res: Response) => {
   const { email } = req.body as { email: string };
@@ -429,7 +423,7 @@ app.post("/api/emailCheck", (req: Request, res: Response) => {
   console.log("이메일 중복 검사 요청 받은 데이터:", { email });
 
   // Step 1: 이메일을 기준으로 사용자 조회
-  db.query("SELECT userId, email FROM user WHERE email = ?", [email])
+  db.query("SELECT user_id, email FROM user WHERE email = ?", [email])
     .then((rows: any) => {
       console.log("이메일 조회 결과:", rows);
 
@@ -458,3 +452,8 @@ app.post("/api/emailCheck", (req: Request, res: Response) => {
       });
     });
 }); // *** 이메일 중복 검사 API 끝
+
+// # [ 작업 핸들링 API ] #
+app.post("/api/get-task", (req: Request, res: Response) => {
+  const { userId } = req.body as { userId: number };
+});
