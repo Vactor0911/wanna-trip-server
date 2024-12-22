@@ -91,7 +91,7 @@ app.post("/api/login", (req: Request, res: Response) => {
           success: true,
           message: "로그인 성공",
           nickname: nickname, // 닉네임 반환
-          userId: user.user_id, // 사용자 ID 반환
+          userId: Number(user.user_id), // 사용자 ID 반환
         });
       });
     })
@@ -244,7 +244,7 @@ app.post("/api/login/kakao", (req: Request, res: Response) => {
                   res.status(200).json({
                     success: true,
                     message: `[ ${kakaoName} ] 님 환영합니다!`,
-                    userId: user.user_id, // 사용자 ID 반환
+                    userId: Number(user.user_id), // 사용자 ID 반환
                     email: kakaoEmail,
                     name: kakaoName,
                     loginType: "kakao",
@@ -303,17 +303,23 @@ app.post("/api/login/google", async (req: Request, res: Response) => {
       [accessToken, refreshToken, email]
     );
 
-    // Step 7: 성공 응답 반환
-    res.status(200).json({
-      success: true,
-      message: `[ ${name} ] 님 환영합니다!`,
-      userId: rows[0].user_id, // 사용자 ID 반환
-      email,
-      name,
-      loginType: "google",
-      accessToken,
-      refreshToken, // 클라이언트에 반환
-    });
+    await db
+      .query("SELECT user_id FROM user WHERE email = ?", [email])
+      .then((result: any) => {
+        const userId = result[0].user_id;
+
+        // Step 7: 성공 응답 반환
+        res.status(200).json({
+          success: true,
+          message: `[ ${name} ] 님 환영합니다!`,
+          userId: Number(userId), // 사용자 ID 반환
+          email,
+          name,
+          loginType: "google",
+          accessToken,
+          refreshToken, // 클라이언트에 반환
+        });
+      });
   } catch (err) {
     console.error("구글 로그인 처리 중 오류 발생:", err);
     res.status(500).json({
