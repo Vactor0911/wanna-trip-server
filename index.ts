@@ -600,7 +600,7 @@ app.post("/api/board", async (req: Request, res: Response) => {
 });
 
 // *** 카드 API ***
-app.post("/api/card", (req: Request, res: Response) => {
+app.post("/api/card", async (req: Request, res: Response) => {
   const { type } = req.query;
   const { templateId, content, startTime, endTime, board, cardId } = req.body;
 
@@ -669,6 +669,48 @@ app.post("/api/card", (req: Request, res: Response) => {
         .then(() => {
           res.status(200).json({ success: true });
         });
+      break;
+    case "swap": // 카드 위치 변경
+      const { from, to } = req.body;
+
+      const conn = await db.getConnection();
+      try {
+        await conn.beginTransaction();
+
+        const [cardFrom] = await conn.query(
+          "SELECT content FROM card WHERE card_id = ?",
+          [from]
+        );
+        const [cardTo] = await conn.query(
+          "SELECT content FROM card WHERE card_id = ?",
+          [to]
+        );
+
+        if (!cardFrom || !cardTo) {
+          throw new Error("카드를 찾을 수 없습니다.");
+        }
+
+        await conn.query("UPDATE card SET content = ? WHERE card_id = ?", [
+          cardTo.content,
+          from,
+        ]);
+        await conn.query("UPDATE card SET content = ? WHERE card_id = ?", [
+          cardFrom.content,
+          to,
+        ]);
+
+        await conn.commit();
+        res.status(200).json({ success: true });
+      } catch (err) {
+        await conn.rollback();
+        console.error("카드 위치 변경 중 오류 발생:", err);
+        res
+          .status(500)
+          .json({ success: false, message: "카드 위치 변경 실패" });
+      } finally {
+        conn.release();
+      }
+
       break;
     case "load-all": // 모든 카드 불러오기
       return db
