@@ -54,16 +54,11 @@ app.listen(PORT, "0.0.0.0", () => {
 app.post("/api/login", (req: Request, res: Response) => {
   const { email, password } = req.body;
 
-  console.log("로그인 요청 받은 데이터:", { email, password });
-
   // Step 1: 이메일로 사용자 조회
   db.query("SELECT * FROM user WHERE email = ?", [email])
     .then((rows: any) => {
-      console.log("사용자 조회 결과:", rows);
-
       if (rows.length === 0) {
         // 사용자가 없는 경우
-        console.log("사용자를 찾을 수 없습니다:", email);
         return res.status(401).json({
           success: false,
           message: "사용자를 찾을 수 없습니다. 회원가입 후 이용해주세요.",
@@ -74,10 +69,6 @@ app.post("/api/login", (req: Request, res: Response) => {
 
       // Step 2: 간편 로그인 사용자 확인
       if (user.loginType !== "normal") {
-        console.log(
-          "간편 로그인 사용자는 일반 로그인을 사용할 수 없습니다:",
-          email
-        );
         return res.status(401).json({
           success: false,
           message:
@@ -88,7 +79,6 @@ app.post("/api/login", (req: Request, res: Response) => {
       // Step 3: 암호화된 비밀번호 비교
       return bcrypt.compare(password, user.password).then((isPasswordMatch) => {
         if (!isPasswordMatch) {
-          console.log("비밀번호가 일치하지 않습니다");
           return res.status(401).json({
             success: false,
             message: "비밀번호가 일치하지 않습니다",
@@ -97,20 +87,11 @@ app.post("/api/login", (req: Request, res: Response) => {
 
         // Step 4: 로그인 성공 처리
         const nickname = user.name; // DB의 name 필드를 닉네임으로 사용
-        console.log(`[${email}] ${nickname}님 로그인 성공`);
         res.json({
           success: true,
           message: "로그인 성공",
           nickname: nickname, // 닉네임 반환
-          userId : user.userId // 사용자 ID 반환
-        });
-
-        // Step 5: 터미널에 반환 정보 출력
-        console.log("반환 정보:", {
-          success: true,
-          message: "로그인 성공",
-          nickname: nickname,
-          userId: user.userId,
+          userId: user.user_id, // 사용자 ID 반환
         });
       });
     })
@@ -132,8 +113,6 @@ app.post("/api/logout", async (req: Request, res: Response) => {
   // `undefined`를 명시적으로 `null`로 변환
   const receivedToken = token || null;
 
-  console.log("로그아웃 요청 받은 데이터:", { email, receivedToken });
-
   try {
     // Step 1: 사용자 조회
     const rows = await db.query("SELECT * FROM user WHERE email = ?", [email]);
@@ -149,8 +128,6 @@ app.post("/api/logout", async (req: Request, res: Response) => {
     const storedToken = rows[0].token || null; // `null`로 명시적으로 처리
     const storedRefreshToken = rows[0].refreshToken;
     const loginType = rows[0].loginType;
-
-    console.log("DB에서 가져온 토큰 값:", storedToken);
 
     // Step 2: 로그인 타입에 따른 토큰 검증
     if (loginType === "normal") {
@@ -182,8 +159,6 @@ app.post("/api/logout", async (req: Request, res: Response) => {
       "UPDATE user SET token = NULL, refreshToken = NULL WHERE email = ?",
       [email]
     );
-
-    console.log(`[${email}] 님의 로그아웃이 성공적으로 완료되었습니다.`);
 
     // Step 4: 성공 응답 반환
     res.status(200).json({
@@ -269,20 +244,12 @@ app.post("/api/login/kakao", (req: Request, res: Response) => {
                   res.status(200).json({
                     success: true,
                     message: `[ ${kakaoName} ] 님 환영합니다!`,
-                    userId: user.userId, // 사용자 ID 반환
+                    userId: user.user_id, // 사용자 ID 반환
                     email: kakaoEmail,
                     name: kakaoName,
                     loginType: "kakao",
                     accessToken,
                     refreshToken, // 클라이언트에 RefreshToken 반환
-                  });
-                  console.log("반환 정보:", {
-                    success: true,
-                    message: `[ ${kakaoName} ] 님 환영합니다!`,
-                    userId: user.userId,
-                    email: kakaoEmail,
-                    name: kakaoName,
-                    loginType: "kakao",
                   });
                 });
             });
@@ -340,21 +307,12 @@ app.post("/api/login/google", async (req: Request, res: Response) => {
     res.status(200).json({
       success: true,
       message: `[ ${name} ] 님 환영합니다!`,
-      userId: rows[0].userId, // 사용자 ID 반환
+      userId: rows[0].user_id, // 사용자 ID 반환
       email,
       name,
       loginType: "google",
       accessToken,
       refreshToken, // 클라이언트에 반환
-    });
-    // Step 8: 터미널에 반환 정보 출력
-    console.log("반환 정보:", {
-      success: true,
-      message: `[ ${name} ] 님 환영합니다!`,
-      userId: rows[0].userId,
-      email,
-      name,
-      loginType: "google",
     });
   } catch (err) {
     console.error("구글 로그인 처리 중 오류 발생:", err);
@@ -410,13 +368,11 @@ app.post("/api/register", (req: Request, res: Response) => {
     password: string;
     name: string;
   };
-  console.log("받은 데이터:", { email, password, name });
 
   // Step 1: 이메일 중복 확인
   db.query("SELECT * FROM user WHERE email = ?", [email])
     .then((rows_email: any) => {
       if (rows_email.length > 0) {
-        console.log("이메일이 이미 존재합니다:", email);
         return res
           .status(400)
           .json({ success: false, message: "이메일이 이미 존재합니다" });
@@ -426,8 +382,6 @@ app.post("/api/register", (req: Request, res: Response) => {
       return bcrypt.hash(password, 10);
     })
     .then((hashedPassword: string) => {
-      console.log("Hashed password:", hashedPassword);
-
       // Step 3: 사용자 저장
       return db.query(
         "INSERT INTO user (email, password, name) VALUES (?, ?, ?)",
@@ -435,7 +389,6 @@ app.post("/api/register", (req: Request, res: Response) => {
       );
     })
     .then((result: any) => {
-      console.log("사용자 삽입 결과:", result);
       res
         .status(201)
         .json({ success: true, message: "사용자가 성공적으로 등록되었습니다" });
@@ -455,16 +408,11 @@ app.post("/api/register", (req: Request, res: Response) => {
 app.post("/api/emailCheck", (req: Request, res: Response) => {
   const { email } = req.body as { email: string };
 
-  console.log("이메일 중복 검사 요청 받은 데이터:", { email });
-
   // Step 1: 이메일을 기준으로 사용자 조회
   db.query("SELECT user_id, email FROM user WHERE email = ?", [email])
     .then((rows: any) => {
-      console.log("이메일 조회 결과:", rows);
-
       if (rows.length > 0) {
         // 이미 이메일이 존재하는 경우
-        console.log("이미 존재하는 이메일:", email);
         return res.status(200).json({
           success: false,
           message: "이미 사용 중인 이메일입니다.",
@@ -472,7 +420,6 @@ app.post("/api/emailCheck", (req: Request, res: Response) => {
       }
 
       // 이메일이 없는 경우
-      console.log("사용 가능한 이메일:", email);
       res.status(200).json({
         success: true,
         message: "사용 가능한 이메일입니다.",
@@ -488,173 +435,250 @@ app.post("/api/emailCheck", (req: Request, res: Response) => {
     });
 }); // *** 이메일 중복 검사 API 끝
 
-
-
-// *** 템플릿, 보드, 카드 업데이트 API 시작 ***
-app.post("/api/update-template", (req: Request, res: Response) => {
-  const { action, data } = req.body;
-
-  switch (action) {
-    // 시간 업데이트
-    case "updateTime": {
-      const { cardId, timeStart, timeEnd } = data;
-
-      // 유효성 검사: 시간 형식이 00:00 ~ 24:00인지 확인
-      const isValidTime = (time: string) => /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(time);
-
-      if (!isValidTime(timeStart) || !isValidTime(timeEnd)) {
-        res.status(400).json({
-          success: false,
-          message: "시간은 00:00 ~ 24:00 사이여야 합니다.",
-        });
-        return
+// *** 템플릿 불러오기 API ***
+app.post("/api/template", (req: Request, res: Response) => {
+  const { userId } = req.body;
+  // Step 1: 템플릿 조회
+  db.query("SELECT * FROM template WHERE user_id = ?", [userId]).then(
+    (rows: any) => {
+      if (rows.length === 0) {
+        // 템플릿이 없다면 생성
+        return db
+          .query("INSERT INTO template (user_id) VALUES (?)", [userId])
+          .then((result: any) => {
+            const template = {
+              template_id: result.insertId,
+              title: "새 여행 계획",
+            };
+            res.status(200).json({ success: true, template: template });
+          });
       }
 
-      if (timeStart >= timeEnd) {
-        res.status(400).json({
-          success: false,
-          message: "시작 시간이 종료 시간보다 이전이어야 합니다.",
-        });
-        return;
-      }
+      const template = rows[0];
+      res.status(200).json({ success: true, template: template });
+    }
+  );
+}); // *** 템플릿 불러오기 API 끝
 
-      // Step 1: 선택된 카드 업데이트
+// *** 보드 API ***
+app.post("/api/board", async (req: Request, res: Response) => {
+  const { type } = req.query;
+  const { templateId, board } = req.body;
+
+  switch (type) {
+    case "append": // 보드 생성 (추가)
+      break;
+    case "insert": // 보드 생성 (삽입)
       db.query(
-        "UPDATE card SET timeStart = ?, timeEnd = ? WHERE cardId = ?",
-        [timeStart, timeEnd, cardId]
-      )
-        .then(() => {
-          // Step 2: 동일한 보드의 다른 카드 가져오기
-          return db.query(
-            `
-            SELECT * 
-            FROM card 
-            WHERE cardId != ? 
-              AND position LIKE CONCAT(SUBSTRING_INDEX(
-                (SELECT position FROM card WHERE cardId = ?), ',', 1), ',%') 
-            ORDER BY timeStart
-          `,
-            [cardId, cardId]
+        `UPDATE card SET board = board + 1 WHERE template_id = ? AND board > ?`,
+        [templateId, board]
+      ).then(() => {
+        res.status(200).json({ success: true });
+      });
+      break;
+    case "copy": // 보드 복사
+      const conn = await db.getConnection();
+      try {
+        conn
+          .query(
+            `UPDATE card SET board = board + 1 WHERE template_id = ? AND board > ?`,
+            [templateId, board]
+          )
+          .then(() => {
+            conn
+              .query(`SELECT * FROM card WHERE template_id = ? AND board = ?`, [
+                templateId,
+                board,
+              ])
+              .then((rows: any) => {
+                const cards = rows.map((row: any) => {
+                  return {
+                    templateId: row.template_id,
+                    type: row.type,
+                    content: row.content,
+                    startTime: row.start_time,
+                    endTime: row.end_time,
+                    board: row.board + 1,
+                  };
+                });
+                conn.beginTransaction();
+                conn
+                  .batch(
+                    `INSERT INTO card (template_id, type, content, start_time, end_time, board) VALUES (?, ?, ?, ?, ?, ?)`,
+                    cards.map((card: any) => [
+                      card.templateId,
+                      card.type,
+                      card.content,
+                      card.startTime,
+                      card.endTime,
+                      card.board,
+                    ])
+                  )
+                  .then(() => conn.commit())
+                  .then(() => {
+                    conn
+                      .query(
+                        `SELECT * FROM card WHERE template_id = ? AND board = ?`,
+                        [templateId, board + 1]
+                      )
+                      .then((rows: any) => {
+                        console.log(rows);
+                        res.status(200).json({
+                          success: true,
+                          cards: rows,
+                        });
+                      });
+                  });
+              });
+          });
+        break;
+      } catch (err) {
+        conn.rollback();
+        throw err;
+      } finally {
+        conn.release();
+      }
+    case "delete": // 보드 삭제
+      db.query(`DELETE FROM card WHERE template_id = ? AND board = ?`, [
+        templateId,
+        board,
+      ]).then(() => {
+        db.query(
+          `UPDATE card SET board = board - 1 WHERE template_id = ? AND board > ?`,
+          [templateId, board]
+        ).then(() => {
+          res.status(200).json({ success: true });
+        });
+      });
+      break;
+    case "swap": // 보드 위치 변경
+      const { from, to } = req.body;
+
+      const swapBoards = async (
+        templateId: number,
+        from: number,
+        to: number
+      ) => {
+        const conn = await db.getConnection();
+        try {
+          await conn.beginTransaction();
+
+          // 임시 보드 번호로 변경
+          await conn.query(
+            `UPDATE card SET board = -1 WHERE template_id = ? AND board = ?`,
+            [templateId, from]
           );
-        })
-        .then((rows: any[]) => {
-          let previousEndTime = timeEnd;
-          const updates: Promise<any>[] = [];
+          await conn.query(
+            `UPDATE card SET board = ? WHERE template_id = ? AND board = ?`,
+            [from, templateId, to]
+          );
+          await conn.query(
+            `UPDATE card SET board = ? WHERE template_id = ? AND board = -1`,
+            [to, templateId]
+          );
 
-          for (const card of rows) {
-            if (card.timeStart < previousEndTime) {
-              // Step 3: 카드가 겹치는 경우 시간 재배치
-              const duration =
-                new Date(`1970-01-01T${card.timeEnd}:00Z`).getTime() -
-                new Date(`1970-01-01T${card.timeStart}:00Z`).getTime();
-              const newStartTime = new Date(`1970-01-01T${previousEndTime}:00Z`);
-              const newEndTime = new Date(newStartTime.getTime() + duration);
+          conn.commit();
+          res.status(200).json({ success: true });
+        } catch (err) {
+          await conn.rollback();
+          console.error("보드 위치 변경 중 오류 발생:", err);
+          res
+            .status(500)
+            .json({ success: false, message: "보드 위치 변경 실패" });
+        } finally {
+          conn.release();
+        }
+      };
 
-              const formattedStart = newStartTime.toISOString().slice(11, 16);
-              const formattedEnd = newEndTime.toISOString().slice(11, 16);
+      await swapBoards(templateId, from, to);
 
-              updates.push(
-                db.query<any>("UPDATE card SET timeStart = ?, timeEnd = ? WHERE cardId = ?", [
-                  formattedStart,
-                  formattedEnd,
-                  card.cardId,
-                ])
-              );
-
-              previousEndTime = formattedEnd;
-            } else {
-              // Step 4: 카드가 겹치지 않는 경우, 다음 종료 시간 업데이트
-              previousEndTime = card.timeEnd;
-            }
-          }
-
-          return Promise.all(updates);
-        })
-        .then(() => {
-          res.status(200).json({ success: true, message: "시간 업데이트 완료" });
-        })
-        .catch((err) => {
-          console.error("시간 업데이트 오류:", err);
-          res.status(500).json({ success: false, message: "시간 업데이트 실패" });
-        });
       break;
-    }
-
-    // 내용 업데이트
-    case "updateContent": {
-      const { cardId: contentCardId, content } = data;
-
-      db.query("UPDATE card SET content = ? WHERE cardId = ?", [content, contentCardId])
-        .then(() => {
-          res.status(200).json({ success: true, message: "내용 업데이트 완료" });
-        })
-        .catch((err) => {
-          console.error("내용 업데이트 오류:", err);
-          res.status(500).json({ success: false, message: "내용 업데이트 실패" });
-        });
-      break;
-    }
-
-    // 보드 위치 교환
-    case "swapBoardPosition": {
-      const { board1Position, board2Position } = data;
-
-      if (!board1Position || !board2Position) {
-        res.status(400).json({ success: false, message: "잘못된 요청" });
-        return;
-      }
-
-      const [board1Day] = board1Position.split(","); // "0"
-      const [board2Day] = board2Position.split(","); // "1"
-
-      // Step 2: 모든 카드의 day 값을 교환
-      db.query(
-        "UPDATE card SET position = REPLACE(position, ?, 'temp') WHERE position LIKE CONCAT(?, ',%')",
-        [board1Day, board1Day]
-      )
-        .then(() =>
-          db.query(
-            "UPDATE card SET position = REPLACE(position, ?, ?) WHERE position LIKE CONCAT(?, ',%')",
-            [board2Day, board1Day, board2Day]
-          )
-        )
-        .then(() =>
-          db.query(
-            "UPDATE card SET position = REPLACE(position, 'temp', ?) WHERE position LIKE 'temp,%'",
-            [board2Day]
-          )
-        )
-        .then(() => {
-          res.status(200).json({ success: true, message: "보드 위치 교환 완료" });
-          console.log(`보드 위치가 교환되었습니다: ${board1Position} <-> ${board2Position}`);
-        })
-        .catch((err) => {
-          console.error("보드 위치 교환 오류:", err);
-          res.status(500).json({ success: false, message: "보드 위치 교환 실패" });
-        });
-      break;
-    }
-
-    default:
+    default: // 잘못된 요청
       res.status(400).json({ success: false, message: "잘못된 요청" });
+      break;
   }
 });
-// *** 템플릿, 보드, 카드 업데이트 API 끝 ***
 
+// *** 카드 API ***
+app.post("/api/card", (req: Request, res: Response) => {
+  const { type } = req.query;
+  const { templateId, content, startTime, endTime, board, cardId } = req.body;
 
-
-
-
-
-
-
-
-
-
-
-
-
-// # [ 작업 핸들링 API ] #
-app.post("/api/get-task", (req: Request, res: Response) => {
-  const { userId } = req.body as { userId: number };
-});
+  switch (type) {
+    case "append": // 카드 생성 (추가)
+      return db
+        .query(
+          "INSERT INTO card (template_id, start_time, end_time, board) VALUES (?, ?, ?, ?)",
+          [templateId, startTime, endTime, board]
+        )
+        .then((result: any) => {
+          res
+            .status(200)
+            .json({ success: true, cardId: Number(result.insertId) });
+        });
+      break;
+    case "insert": // 카드 생성 (삽입)
+      return db
+        .query(
+          `INSERT INTO card (template_id, start_time, end_time, board) VALUES (?, ?, ?, ?)`,
+          [templateId, startTime, endTime, board]
+        )
+        .then((result: any) => {
+          res
+            .status(200)
+            .json({ success: true, cardId: Number(result.insertId) });
+        });
+      break;
+    case "copy": // 카드 복사
+      return db
+        .query(`SELECT * FROM card WHERE card_id = ?`, [cardId])
+        .then((rows: any) => {
+          const card = rows[0];
+          return db
+            .query(
+              `INSERT INTO card (template_id, type, content, start_time, end_time, board) VALUES (?, ?, ?, ?, ?, ?)`,
+              [
+                card.template_id,
+                card.type,
+                card.content,
+                startTime,
+                endTime,
+                card.board,
+              ]
+            )
+            .then((result: any) => {
+              res
+                .status(200)
+                .json({ success: true, cardId: Number(result.insertId) });
+            });
+        });
+      break;
+    case "update": // 카드 업데이트
+      return db
+        .query(
+          `UPDATE card SET content = ?, start_time = ?, end_time = ? WHERE card_id = ?`,
+          [content, startTime, endTime, cardId]
+        )
+        .then(() => {
+          res.status(200).json({ success: true });
+        });
+      break;
+    case "delete": // 카드 삭제
+      return db
+        .query(`DELETE FROM card WHERE card_id = ?`, [cardId])
+        .then(() => {
+          res.status(200).json({ success: true });
+        });
+      break;
+    case "load-all": // 모든 카드 불러오기
+      return db
+        .query("SELECT * FROM card WHERE template_id = ?", [templateId])
+        .then((rows: any) => {
+          res.status(200).json({ success: true, cards: rows });
+        });
+      break;
+    default: // 잘못된 요청
+      res.status(400).json({ success: false, message: "잘못된 요청" });
+      break;
+  }
+}); // *** 카드 API 끝
