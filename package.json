@@ -18,6 +18,6 @@
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2",
     "mariadb": "^3.4.0",
-    "vite-node": "^2.1.5"
+    "vite-node": "^3.0.9"
   }
 }
