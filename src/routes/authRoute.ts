@@ -7,6 +7,5 @@ authRoute.post("/login", login);
 authRoute.post("/login/kakao", kakaoLogin);
 authRoute.post("/login/google", googleLogin);
 authRoute.post("/register", register);
-authRoute.post("logout", logout);
-
+authRoute.post("/logout", logout);
 export default authRoute;
