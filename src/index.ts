@@ -1,6 +1,5 @@
 import express, { Request, Response } from "express";
 import cors from "cors";
-import bcrypt from "bcrypt"; // 비밀번호 암호화 최신버전 express 에서 가지고 있다함
 import dotenv from "dotenv"; // 환경 변수 사용한 민감한 정보 관리
 import jwt from "jsonwebtoken"; //JWT 발급을 위한 라이브러리 설치
 import { dbPool } from "./config/db";
