@@ -4,7 +4,7 @@
   "version": "0.0.1",
   "author": "vactor0911@gmail.com",
   "scripts": {
-    "start": "vite-node index.ts"
+    "start": "vite-node src/index.ts"
   },
   "dependencies": {
     "@types/cors": "^2.8.17",
