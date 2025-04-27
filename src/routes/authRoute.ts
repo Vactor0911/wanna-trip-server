@@ -8,7 +8,7 @@ authRoute.post("/login", login);
 authRoute.post("/login/kakao", kakaoLogin);
 authRoute.post("/login/google", googleLogin);
 authRoute.post("/register", register);
-authRoute.post("/logout", logout);
+authRoute.post("/logout", csrfProtection, logout);
 
 // 비밀번호 재설정 관련
 authRoute.patch("/resetPassword", csrfProtection, resetPassword);

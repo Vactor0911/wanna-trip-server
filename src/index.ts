@@ -8,10 +8,7 @@ import cookieParser from "cookie-parser"; // 쿠키 파싱 미들웨어 추가
 import bodyParser from "body-parser"; // 바디 파서 미들웨어 추가
 import { dbPool } from "./config/db";
 import authRoute from "./routes/authRoute";
-import csrfRoute from "./routes/csrfRoute.ts";
-
-// .env 파일 로드
-dotenv.config();
+import csrfRoute from "./routes/csrfRoute";
 
 // .env 파일 로드
 dotenv.config();
