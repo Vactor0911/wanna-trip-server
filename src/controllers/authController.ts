@@ -73,7 +73,7 @@ export const login = async (req: Request, res: Response) => {
       const user = rows[0];
 
       // Step 2: 간편 로그인 사용자 확인
-      if (user.loginType !== "normal") {
+      if (user.login_type !== "normal") {
         return res.status(401).json({
           success: false,
           message:
@@ -134,10 +134,10 @@ export const logout = async (req: Request, res: Response) => {
 
     const storedToken = rows[0].token || null; // `null`로 명시적으로 처리
     const storedRefreshToken = rows[0].refreshToken;
-    const loginType = rows[0].loginType;
+    const login_type = rows[0].login_type;
 
     // Step 2: 로그인 타입에 따른 토큰 검증
-    if (loginType === "normal") {
+    if (login_type === "normal") {
       // 일반 로그인 사용자는 AccessToken만 검증
       if (storedToken !== receivedToken) {
         res
@@ -145,7 +145,7 @@ export const logout = async (req: Request, res: Response) => {
           .json({ success: false, message: "잘못된 AccessToken입니다." });
         return;
       }
-    } else if (loginType === "kakao" || loginType === "google") {
+    } else if (login_type === "kakao" || login_type === "google") {
       // 간편 로그인 사용자는 AccessToken 또는 RefreshToken 검증
       if (
         storedToken !== receivedToken &&
@@ -212,13 +212,13 @@ export const kakaoLogin = (req: Request, res: Response) => {
           if (rows.length === 0) {
             // 신규 사용자 등록
             return dbPool.query(
-              "INSERT INTO user (email, name, loginType, token) VALUES (?, ?, ?, ?)",
+              "INSERT INTO user (email, name, login_type, token) VALUES (?, ?, ?, ?)",
               [kakaoEmail, kakaoName, "kakao", token]
             );
           } else {
             // 기존 사용자 정보 업데이트
             return dbPool.query(
-              "UPDATE user SET name = ?, loginType = ?, token = ? WHERE email = ?",
+              "UPDATE user SET name = ?, login_type = ?, token = ? WHERE email = ?",
               [kakaoName, "kakao", token, kakaoEmail]
             );
           }
@@ -254,7 +254,7 @@ export const kakaoLogin = (req: Request, res: Response) => {
                     userId: Number(user.user_id), // 사용자 ID 반환
                     email: kakaoEmail,
                     name: kakaoName,
-                    loginType: "kakao",
+                    login_type: "kakao",
                     accessToken,
                     refreshToken, // 클라이언트에 RefreshToken 반환
                   });
@@ -285,13 +285,13 @@ export const googleLogin = async (req: Request, res: Response) => {
     if (rows.length === 0) {
       // Step 2: 신규 사용자라면 dbPool에 삽입
       await dbPool.query(
-        "INSERT INTO user (email, name, loginType, status) VALUES (?, ?, ?, ?)",
-        [email, name, "google", "active"] // loginType: google, status: active
+        "INSERT INTO user (email, name, login_type, status) VALUES (?, ?, ?, ?)",
+        [email, name, "google", "active"] // login_type: google, status: active
       );
     } else {
       // Step 3: 기존 사용자라면 정보 업데이트
       await dbPool.query(
-        "UPDATE user SET name = ?, loginType = ? WHERE email = ?",
+        "UPDATE user SET name = ?, login_type = ? WHERE email = ?",
         [name, "google", email]
       );
     }
@@ -324,7 +324,7 @@ export const googleLogin = async (req: Request, res: Response) => {
           userId: Number(userId), // 사용자 ID 반환
           email,
           name,
-          loginType: "google",
+          login_type: "google",
           accessToken,
           refreshToken, // 클라이언트에 반환
         });
