@@ -833,9 +833,10 @@ export const refreshToken = async (req: Request, res: Response) => {
           userId: decoded.userId,
           name: decoded.name,
           permission: decoded.permission,
+          login_type: decoded.login_type,
         },
         process.env.JWT_ACCESS_SECRET!,
-        { expiresIn: "15m" } // Access Token 만료 시간
+        { expiresIn: "30m" } // Access Token 만료 시간
       );
 
       res.status(200).json({
