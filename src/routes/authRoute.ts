@@ -1,6 +1,6 @@
 import express from "express";
 import { googleLogin, kakaoLogin, login, logout, refreshToken, register, resetPassword, sendVerifyEmail, verifyEmailCode } from "../controllers/authController";
-import { csrfProtection } from "../utils";
+import { csrfProtection, limiter } from "../utils";
 
 const authRoute = express.Router();
 
@@ -18,6 +18,6 @@ authRoute.post("/sendVerifyEmail", sendVerifyEmail);
 authRoute.post("/verifyEmailCode", verifyEmailCode);
 
 // 리프레쉬 토큰
-authRoute.post("/token/refresh", csrfProtection, refreshToken); // 테스트 안해봄
+authRoute.post("/token/refresh", csrfProtection, limiter, refreshToken); // 테스트 안해봄
 
 export default authRoute;
