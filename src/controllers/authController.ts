@@ -223,7 +223,7 @@ export const logout = async (req: Request, res: Response) => {
 
 // 카카오 간편 로그인
 export const kakaoLogin = async (req: Request, res: Response) => {
-  const { email, name, KaKaoAccessToken } = req.body;
+  const { KaKaoAccessToken } = req.body;
 
   try {
     // Step 1: 카카오 사용자 정보 확인
@@ -241,8 +241,8 @@ export const kakaoLogin = async (req: Request, res: Response) => {
 
     // Step 2: 사용자 정보 추출
     const userData = kakaoResponse.data;
-    const kakaoEmail = userData.kakao_account.email || email; // 카카오에서 제공하는 이메일
-    const kakaoName = userData.properties.nickname || name; // 닉네임
+    const kakaoEmail = userData.kakao_account.email; // 카카오에서 제공하는 이메일
+    const kakaoName = userData.properties.nickname; // 닉네임
 
     // Step 3: dbPool에서 사용자 정보 조회
     const rows = await dbPool.query("SELECT * FROM user WHERE email = ?", [
