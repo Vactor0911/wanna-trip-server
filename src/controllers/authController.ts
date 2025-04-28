@@ -12,11 +12,7 @@ import { dbPool } from "../config/db";
 
 // 사용자 회원가입
 export const register = (req: Request, res: Response) => {
-  const { email, password, name } = req.body as {
-    email: string;
-    password: string;
-    name: string;
-  };
+  const { email, password, name } = req.body;
 
   // Step 1: 이메일 중복 확인
   dbPool
@@ -58,9 +54,24 @@ export const register = (req: Request, res: Response) => {
 export const login = async (req: Request, res: Response) => {
   const { email, password } = req.body;
 
-  // Step 1: 이메일로 사용자 조회
+  // Step 0: 탈퇴된 계정인지 확인
   dbPool
-    .query("SELECT * FROM user WHERE email = ?", [email])
+    .query("SELECT user_id, state FROM user WHERE email = ?", [email])
+    .then((rows: any) => {
+      if (rows.length > 0 && rows[0].state === "inactive") {
+        // 탈퇴된 계정인 경우
+        return Promise.reject({
+          status: 400,
+          message: "탈퇴된 계정입니다. 관리자에게 문의해주세요.",
+        });
+      }
+
+      // Step 1: ID로 사용자 조회
+      return dbPool.query(
+        "SELECT * FROM user WHERE email = ? AND state = 'active'",
+        [email]
+      );
+    })
     .then((rows: any) => {
       if (rows.length === 0) {
         // 사용자가 없는 경우
@@ -86,190 +97,229 @@ export const login = async (req: Request, res: Response) => {
         if (!isPasswordMatch) {
           return res.status(401).json({
             success: false,
-            message: "비밀번호가 일치하지 않습니다",
+            message: "비밀번호가 일치하지 않습니다. 다시 입력해주세요.",
           });
         }
 
-        // Step 4: 로그인 성공 처리
-        const nickname = user.name; // dbPool의 name 필드를 닉네임으로 사용
-        res.json({
-          success: true,
-          message: "로그인 성공",
-          nickname: nickname, // 닉네임 반환
-          userId: Number(user.user_id), // 사용자 ID 반환
-        });
+        // Step 3: Access Token 발급
+        const accessToken = jwt.sign(
+          {
+            userId: user.user_id,
+            name: user.name,
+            permission: user.permission,
+            login_type: "normal",
+          },
+          process.env.JWT_ACCESS_SECRET!,
+          { expiresIn: "30m" } // Access Token 만료 시간
+        );
+
+        // Step 4: Refresh Token 발급
+        const refreshToken = jwt.sign(
+          {
+            userId: user.user_id,
+            name: user.name,
+            permission: user.permission,
+            login_type: "normal",
+          },
+          process.env.JWT_REFRESH_SECRET!,
+          { expiresIn: "7d" } // Refresh Token 만료 시간
+        );
+
+        // Step 5: Refresh Token 저장 (DB)
+        return dbPool
+          .query("UPDATE user SET refresh_token = ? WHERE email = ?", [
+            refreshToken,
+            email,
+          ])
+          .then(() => {
+            // Step 6: 쿠키에 Refresh Token 저장
+            res.cookie("refreshToken", refreshToken, {
+              httpOnly: true,
+              secure: false, // true: HTTPS 환경에서만 작동, 로컬 테스트에선 false로
+              sameSite: "lax", // 로컬 개발환경에선 반드시 lax로, 배포시 none + secure:true
+              maxAge: 7 * 24 * 60 * 60 * 1000, // 7일
+            });
+
+            // Step 7: 응답 반환
+            res.status(200).json({
+              success: true,
+              message: "로그인 성공",
+              name: user.name,
+              userId: user.user_id, // 사용자 ID, 프론트에서 사용
+              permissions: user.permission, // 사용자 권한, 프론트에서 사용
+              accessToken, // Access Token 반환
+            });
+          });
       });
     })
     .catch((err) => {
       // 에러 처리
-      console.error("서버 오류 발생:", err);
-      res.status(500).json({
-        success: false,
-        message: "서버 오류 발생",
-        error: err.message,
-      });
+      if (err.status) {
+        res.status(err.status).json({
+          success: false,
+          message: err.message,
+        });
+      } else {
+        console.error("서버 오류 발생:", err);
+        res.status(500).json({
+          success: false,
+          message: "서버 오류 발생",
+          error: err.message,
+        });
+      }
     });
 };
 
 // 사용자 로그아웃
 export const logout = async (req: Request, res: Response) => {
-  const { email, token } = req.body;
+  const { refreshToken } = req.cookies; // 쿠키에서 Refresh Token 추출
 
-  // `undefined`를 명시적으로 `null`로 변환
-  const receivedToken = token || null;
-
-  try {
-    // Step 1: 사용자 조회
-    const rows = await dbPool.query("SELECT * FROM user WHERE email = ?", [
-      email,
-    ]);
-
-    if (rows.length === 0) {
-      // 사용자 정보를 찾지 못한 경우
-      res
-        .status(404)
-        .json({ success: false, message: "사용자를 찾을 수 없습니다." });
-      return;
-    }
-
-    const storedToken = rows[0].token || null; // `null`로 명시적으로 처리
-    const storedRefreshToken = rows[0].refreshToken;
-    const login_type = rows[0].login_type;
-
-    // Step 2: 로그인 타입에 따른 토큰 검증
-    if (login_type === "normal") {
-      // 일반 로그인 사용자는 AccessToken만 검증
-      if (storedToken !== receivedToken) {
-        res
-          .status(401)
-          .json({ success: false, message: "잘못된 AccessToken입니다." });
-        return;
-      }
-    } else if (login_type === "kakao" || login_type === "google") {
-      // 간편 로그인 사용자는 AccessToken 또는 RefreshToken 검증
-      if (
-        storedToken !== receivedToken &&
-        storedRefreshToken !== receivedToken
-      ) {
-        res.status(401).json({ success: false, message: "잘못된 토큰입니다." });
-        return;
-      }
-    } else {
-      res
-        .status(400)
-        .json({ success: false, message: "알 수 없는 로그인 타입입니다." });
-      return;
-    }
-
-    // Step 3: 토큰 및 RefreshToken 제거
-    await dbPool.query(
-      "UPDATE user SET token = NULL, refreshToken = NULL WHERE email = ?",
-      [email]
-    );
-
-    // Step 4: 성공 응답 반환
-    res.status(200).json({
-      success: true,
-      message: "로그아웃이 성공적으로 완료되었습니다.",
-    });
-  } catch (err) {
-    // Step 5: 에러 처리
-    console.error("로그아웃 처리 중 오류 발생:", err);
-    res.status(500).json({
+  if (!refreshToken) {
+    res.status(403).json({
       success: false,
-      message: "로그아웃 처리 중 오류가 발생했습니다.",
+      message: "Refresh Token이 필요합니다.",
     });
+    return;
   }
-};
 
-// 카카오 간편 로그인
-export const kakaoLogin = (req: Request, res: Response) => {
-  const { email, name, token } = req.body;
-
-  // Step 1: 카카오 사용자 정보 확인
-  axios
-    .get("https://kapi.kakao.com/v2/user/me", {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    .then((kakaoResponse) => {
-      if (kakaoResponse.status !== 200) {
-        res.status(401).json({
+  dbPool
+    .query("SELECT * FROM user WHERE refresh_token = ?", [refreshToken])
+    .then((rows: any[]) => {
+      if (rows.length === 0) {
+        return res.status(404).json({
           success: false,
-          message: "잘못된 토큰 또는 만료된 토큰",
+          message: "유효하지 않은 Refresh Token입니다.",
         });
-        return;
       }
 
-      // Step 2: 사용자 정보 추출
-      const userData = kakaoResponse.data;
-      const kakaoEmail = userData.kakao_account.email || email; // 카카오에서 제공하는 이메일
-      const kakaoName = userData.properties.nickname || name; // 닉네임 추출
-
-      // Step 3: dbPool에서 사용자 정보 조회
+      // DB에서 Refresh Token 제거
       return dbPool
-        .query("SELECT * FROM user WHERE email = ?", [kakaoEmail])
-        .then((rows: any) => {
-          if (rows.length === 0) {
-            // 신규 사용자 등록
-            return dbPool.query(
-              "INSERT INTO user (email, name, login_type, token) VALUES (?, ?, ?, ?)",
-              [kakaoEmail, kakaoName, "kakao", token]
-            );
-          } else {
-            // 기존 사용자 정보 업데이트
-            return dbPool.query(
-              "UPDATE user SET name = ?, login_type = ?, token = ? WHERE email = ?",
-              [kakaoName, "kakao", token, kakaoEmail]
-            );
-          }
-        })
+        .query("UPDATE user SET refresh_token = NULL WHERE refresh_token = ?", [
+          refreshToken,
+        ])
         .then(() => {
-          // Step 4: 사용자 ID 조회
-          return dbPool
-            .query("SELECT * FROM user WHERE email = ?", [kakaoEmail])
-            .then((rows: any) => {
-              const user = rows[0];
+          // 클라이언트에서 쿠키 삭제
+          res.clearCookie("accessToken");
+          res.clearCookie("refreshToken");
 
-              // Step 5: AccessToken 생성
-              const accessToken = jwt.sign(
-                { email: kakaoEmail, name: kakaoName },
-                process.env.JWT_SECRET_KEY as string,
-                { expiresIn: "1h" }
-              );
-
-              // Step 6: RefreshToken 생성
-              const refreshToken = crypto.randomBytes(32).toString("hex");
-
-              // Step 7: RefreshToken 및 AccessToken 저장
-              return dbPool
-                .query(
-                  "UPDATE user SET token = ?, refreshToken = ? WHERE email = ?",
-                  [accessToken, refreshToken, kakaoEmail]
-                )
-                .then(() => {
-                  // Step 8: 클라이언트로 응답 반환
-                  res.status(200).json({
-                    success: true,
-                    message: `[ ${kakaoName} ] 님 환영합니다!`,
-                    userId: Number(user.user_id), // 사용자 ID 반환
-                    email: kakaoEmail,
-                    name: kakaoName,
-                    login_type: "kakao",
-                    accessToken,
-                    refreshToken, // 클라이언트에 RefreshToken 반환
-                  });
-                });
-            });
+          return res.status(200).json({
+            success: true,
+            message: "로그아웃이 성공적으로 완료되었습니다.",
+          });
         });
     })
     .catch((err) => {
-      // 에러 처리
-      console.error("카카오 로그인 처리 중 오류 발생:", err);
+      console.error("로그아웃 처리 중 서버 오류 발생:", err);
       res.status(500).json({
         success: false,
-        message: "카카오 로그인 처리 중 오류가 발생했습니다.",
+        message: "로그아웃 처리 중 오류가 발생했습니다.",
       });
     });
+};
+
+// 카카오 간편 로그인
+export const kakaoLogin = async (req: Request, res: Response) => {
+  const { email, name, KaKaoAccessToken } = req.body;
+
+  try {
+    // Step 1: 카카오 사용자 정보 확인
+    const kakaoResponse = await axios.get("https://kapi.kakao.com/v2/user/me", {
+      headers: { Authorization: `Bearer ${KaKaoAccessToken}` },
+    });
+
+    if (kakaoResponse.status !== 200) {
+      res.status(401).json({
+        success: false,
+        message: "잘못된 토큰 또는 만료된 토큰",
+      });
+      return;
+    }
+
+    // Step 2: 사용자 정보 추출
+    const userData = kakaoResponse.data;
+    const kakaoEmail = userData.kakao_account.email || email; // 카카오에서 제공하는 이메일
+    const kakaoName = userData.properties.nickname || name; // 닉네임
+
+    // Step 3: dbPool에서 사용자 정보 조회
+    const rows = await dbPool.query("SELECT * FROM user WHERE email = ?", [
+      kakaoEmail,
+    ]);
+
+    let user;
+
+    if (rows.length === 0) {
+      // 신규 사용자 등록
+      await dbPool.query(
+        "INSERT INTO user (email, name, login_type) VALUES (?, ?, ?)",
+        [kakaoEmail, kakaoName, "kakao"]
+      );
+
+      // 새로 등록한 사용자 정보 가져오기
+      const newUserRows = await dbPool.query(
+        "SELECT * FROM user WHERE email = ?",
+        [kakaoEmail]
+      );
+      user = newUserRows[0];
+    } else {
+      // 기존 사용자
+      user = rows[0];
+    }
+
+    // Step 4: Access Token 발급
+    const accessToken = jwt.sign(
+      {
+        userId: user.user_id,
+        name: kakaoName,
+        permission: user.permission,
+        login_type: "kakao",
+      },
+      process.env.JWT_ACCESS_SECRET!,
+      { expiresIn: "30m" } // Access Token 만료 시간
+    );
+
+    // Step 5: Refresh Token 발급
+    const refreshToken = jwt.sign(
+      {
+        userId: user.user_id,
+        name: kakaoName,
+        permission: user.permission,
+        login_type: "kakao",
+      },
+      process.env.JWT_REFRESH_SECRET!,
+      { expiresIn: "7d" } // Refresh Token 만료 시간
+    );
+
+    // Step 6: Refresh Token 저장 (DB)
+    await dbPool.query(
+      "UPDATE user SET refresh_token = ?, name = ? WHERE email = ?",
+      [refreshToken, kakaoName, kakaoEmail]
+    );
+
+    // Step 7: 쿠키에 Refresh Token 저장
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: false, // true: HTTPS 환경에서만 작동, 로컬 테스트에선 false로
+      sameSite: "lax", // 로컬 개발환경에선 반드시 lax로, 배포시 none + secure:true
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7일
+    });
+
+    // Step 8: 클라이언트로 응답 반환
+    res.status(200).json({
+      success: true,
+      message: `로그인 성공`,
+      name: kakaoName,
+      userId: user.user_id, // 사용자 ID 반환
+      permissions: user.permission, // 사용자 권한
+      accessToken, // Access Token 반환
+    });
+  } catch (err) {
+    // 에러 처리
+    console.error("카카오 로그인 처리 중 오류 발생:", err);
+    res.status(500).json({
+      success: false,
+      message: "카카오 로그인 처리 중 오류가 발생했습니다.",
+    });
+  }
 };
 
 // 구글 간편 로그인
@@ -685,7 +735,8 @@ export const resetPassword = async (req: Request, res: Response) => {
   }
 
   // Step 1: 사용자 조회
-  dbPool.query("SELECT * FROM user WHERE id = ? AND email = ?", [id, email])
+  dbPool
+    .query("SELECT * FROM user WHERE id = ? AND email = ?", [id, email])
     .then((rows: any[]) => {
       if (rows.length === 0) {
         return Promise.reject({
@@ -719,4 +770,74 @@ export const resetPassword = async (req: Request, res: Response) => {
         });
       }
     });
+};
+
+// 토큰 재발급 API
+export const refreshToken = async (req: Request, res: Response) => {
+  const { refreshToken } = req.cookies; // 쿠키에서 Refresh Token 추출
+
+  if (!refreshToken) {
+    res.status(403).json({
+      success: false,
+      message: "Refresh Token이 필요합니다.",
+    });
+    return;
+  }
+
+  try {
+    const rows = await dbPool.query(
+      "SELECT * FROM user WHERE refresh_token = ?",
+      [refreshToken]
+    );
+
+    if (rows.length === 0) {
+      res.status(404).json({
+        success: false,
+        message: "유효하지 않은 Refresh Token입니다.",
+      });
+      return;
+    }
+
+    // Refresh Token 유효성 검증 및 Access Token 재발급
+    try {
+      const decoded: any = jwt.verify(
+        refreshToken,
+        process.env.JWT_REFRESH_SECRET!
+      );
+      const newAccessToken = jwt.sign(
+        {
+          userId: decoded.userId,
+          name: decoded.name,
+          permission: decoded.permission,
+        },
+        process.env.JWT_ACCESS_SECRET!,
+        { expiresIn: "15m" } // Access Token 만료 시간
+      );
+
+      res.status(200).json({
+        success: true,
+        message: "Access Token이 갱신되었습니다.",
+        accessToken: newAccessToken,
+        userId: decoded.userId,
+        name: decoded.name,
+        permissions: decoded.permission,
+      });
+    } catch (err) {
+      // Refresh Token 만료 시 DB에서 삭제
+      await dbPool.query(
+        "UPDATE user SET refresh_token = NULL WHERE refresh_token = ?",
+        [refreshToken]
+      );
+      res.status(403).json({
+        success: false,
+        message: "Refresh Token이 만료되었습니다.",
+      });
+    }
+  } catch (err) {
+    console.error("Token Refresh 처리 중 오류 발생:", err);
+    res.status(500).json({
+      success: false,
+      message: "서버 오류로 인해 토큰 갱신에 실패했습니다.",
+    });
+  }
 };

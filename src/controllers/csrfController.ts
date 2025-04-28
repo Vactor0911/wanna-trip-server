@@ -18,7 +18,6 @@ export const csrfToken = (req: Request, res: Response): void => {
       });
       return;
     }
-
     res.json({
       success: true,
       csrfToken: token,
