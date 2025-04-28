@@ -11,43 +11,47 @@ const allowedSymbolsForPassword = /^[a-zA-Z0-9!@#$%^&*?]*$/; // 허용된 문자
 import { dbPool } from "../config/db";
 
 // 사용자 회원가입
-export const register = (req: Request, res: Response) => {
+export const register = async (req: Request, res: Response) => {
   const { email, password, name } = req.body;
 
-  // Step 1: 이메일 중복 확인
-  dbPool
-    .query("SELECT * FROM user WHERE email = ?", [email])
-    .then((rows_email: any) => {
-      if (rows_email.length > 0) {
-        return res
-          .status(400)
-          .json({ success: false, message: "이메일이 이미 존재합니다" });
-      }
+  try {
+    // Step 1: 이메일 중복 확인
+    const rows_email = await dbPool.query(
+      "SELECT * FROM user WHERE email = ?",
+      [email]
+    );
 
-      // Step 2: 비밀번호 암호화
-      return bcrypt.hash(password, 10);
-    })
-    .then((hashedPassword: string) => {
-      // Step 3: 사용자 저장
-      return dbPool.query(
-        "INSERT INTO user (email, password, name) VALUES (?, ?, ?)",
-        [email, hashedPassword, name]
-      );
-    })
-    .then((result: any) => {
-      res
-        .status(201)
-        .json({ success: true, message: "사용자가 성공적으로 등록되었습니다" });
-    })
-    .catch((err: any) => {
-      // Step 4: 에러 처리
-      console.error("서버 오류 발생:", err);
-      res.status(500).json({
+    if (rows_email.length > 0) {
+      res.status(400).json({
         success: false,
-        message: "서버 오류 발생",
-        error: err.message,
+        message: "이메일이 이미 존재합니다.",
       });
+      return;
+    }
+
+    // Step 2: 비밀번호 암호화
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Step 3: 사용자 저장
+    await dbPool.query(
+      "INSERT INTO user (email, password, name) VALUES (?, ?, ?)",
+      [email, hashedPassword, name]
+    );
+
+    // Step 4: 성공 응답
+    res.status(201).json({
+      success: true,
+      message: "사용자가 성공적으로 등록되었습니다",
     });
+  } catch (err: any) {
+    // Step 5: 에러 처리
+    console.error("서버 오류 발생:", err);
+    res.status(500).json({
+      success: false,
+      message: "서버 오류 발생",
+      error: err.message,
+    });
+  }
 };
 
 // 사용자 로그인
@@ -324,61 +328,81 @@ export const kakaoLogin = async (req: Request, res: Response) => {
 
 // 구글 간편 로그인
 export const googleLogin = async (req: Request, res: Response) => {
-  const { email, name } = req.body;
+  const { googleEmail, googleName } = req.body;
 
   try {
     // Step 1: 사용자 이메일로 조회
     const rows = await dbPool.query("SELECT * FROM user WHERE email = ?", [
-      email,
+      googleEmail,
     ]);
 
+    let user;
+
     if (rows.length === 0) {
-      // Step 2: 신규 사용자라면 dbPool에 삽입
+      // 신규 사용자 등록
       await dbPool.query(
-        "INSERT INTO user (email, name, login_type, status) VALUES (?, ?, ?, ?)",
-        [email, name, "google", "active"] // login_type: google, status: active
+        "INSERT INTO user (email, name, login_type) VALUES (?, ?, ?)",
+        [googleEmail, googleName, "google"]
       );
+
+      // 새로 등록한 사용자 정보 가져오기
+      const newUserRows = await dbPool.query(
+        "SELECT * FROM user WHERE email = ?",
+        [googleEmail]
+      );
+      user = newUserRows[0];
     } else {
-      // Step 3: 기존 사용자라면 정보 업데이트
-      await dbPool.query(
-        "UPDATE user SET name = ?, login_type = ? WHERE email = ?",
-        [name, "google", email]
-      );
+      // 기존 사용자
+      user = rows[0];
     }
 
-    // Step 4: JWT 생성 = AccessToken 생성
+    // Step 4: Access Token 발급
     const accessToken = jwt.sign(
-      { email, name }, // JWT 페이로드
-      process.env.JWT_SECRET_KEY as string, // 비밀 키
-      { expiresIn: "1h" } // 유효 기간
+      {
+        userId: user.user_id,
+        name: googleName,
+        permission: user.permission,
+        login_type: "google",
+      },
+      process.env.JWT_ACCESS_SECRET!,
+      { expiresIn: "30m" } // Access Token 만료 시간
     );
 
-    // Step 5: RefreshToken 생성
-    const refreshToken = crypto.randomBytes(32).toString("hex"); // Secure Refresh Token
+    // Step 5: Refresh Token 발급
+    const refreshToken = jwt.sign(
+      {
+        userId: user.user_id,
+        name: googleName,
+        permission: user.permission,
+        login_type: "google",
+      },
+      process.env.JWT_REFRESH_SECRET!,
+      { expiresIn: "7d" } // Refresh Token 만료 시간
+    );
 
-    // Step 6: RefreshToken 및 AccessToken dbPool 저장
+    // Step 6: Refresh Token 저장 (DB)
     await dbPool.query(
-      "UPDATE user SET token = ?, refreshToken = ? WHERE email = ?",
-      [accessToken, refreshToken, email]
+      "UPDATE user SET refresh_token = ?, name = ? WHERE email = ?",
+      [refreshToken, googleName, googleEmail]
     );
 
-    await dbPool
-      .query("SELECT user_id FROM user WHERE email = ?", [email])
-      .then((result: any) => {
-        const userId = result[0].user_id;
+    // Step 7: 쿠키에 Refresh Token 저장
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: false, // true: HTTPS 환경에서만 작동, 로컬 테스트에선 false로
+      sameSite: "lax", // 로컬 개발환경에선 반드시 lax로, 배포시 none + secure:true
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7일
+    });
 
-        // Step 7: 성공 응답 반환
-        res.status(200).json({
-          success: true,
-          message: `[ ${name} ] 님 환영합니다!`,
-          userId: Number(userId), // 사용자 ID 반환
-          email,
-          name,
-          login_type: "google",
-          accessToken,
-          refreshToken, // 클라이언트에 반환
-        });
-      });
+    // Step 8: 클라이언트로 응답 반환
+    res.status(200).json({
+      success: true,
+      message: `로그인 성공`,
+      name: googleName,
+      userId: user.user_id, // 사용자 ID 반환
+      permissions: user.permission, // 사용자 권한
+      accessToken, // Access Token 반환
+    });
   } catch (err) {
     console.error("구글 로그인 처리 중 오류 발생:", err);
     res.status(500).json({
