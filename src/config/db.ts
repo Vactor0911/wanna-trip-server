@@ -11,7 +11,8 @@ export const dbPool = MariaDB.createPool({
   user: process.env.DB_USERNAME,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_DATABASE,
-  connectionLimit: 10,
+  connectionLimit: 30,
+  bigNumberStrings: true,
 });
 
 // MariadbPool 연결 확인
