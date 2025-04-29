@@ -166,6 +166,7 @@ export const login = async (req: Request, res: Response) => {
               success: true,
               message: "로그인 성공",
               name: user.name,
+              userUuid: user.user_uuid, // 사용자 UUID
               userId: user.user_id, // 사용자 ID, 프론트에서 사용
               permissions: user.permission, // 사용자 권한, 프론트에서 사용
               accessToken, // Access Token 반환
