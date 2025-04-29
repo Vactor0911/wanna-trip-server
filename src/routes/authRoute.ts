@@ -35,7 +35,7 @@ authRoute.post("/verifyEmailCode", verifyEmailCode);
 // 로그아웃
 authRoute.post("/logout", csrfProtection, logout);
 
-// 리프레쉬 토큰 재발급
+// 엑세스 토큰 재발급
 authRoute.post("/token/refresh", csrfProtection, limiter, refreshToken); // 테스트 안해봄
 
 // 비밀번호 재설정 관련 - 미연동

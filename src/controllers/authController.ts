@@ -131,7 +131,7 @@ export const login = async (req: Request, res: Response) => {
             login_type: "normal",
           },
           process.env.JWT_ACCESS_SECRET!,
-          { expiresIn: "30m" } // Access Token 만료 시간
+          { expiresIn: "30m" } // Access Token 만료 시간 30m
         );
 
         // Step 4: Refresh Token 발급
@@ -143,7 +143,7 @@ export const login = async (req: Request, res: Response) => {
             login_type: "normal",
           },
           process.env.JWT_REFRESH_SECRET!,
-          { expiresIn: "7d" } // Refresh Token 만료 시간
+          { expiresIn: "7d" } // Refresh Token 만료 시간 7d
         );
 
         // Step 5: Refresh Token 저장 (DB)
@@ -719,7 +719,7 @@ export const resetPassword = async (req: Request, res: Response) => {
     });
 };
 
-// 리프레쉬 토큰 재발급
+// 엑세스 토큰 재발급
 export const refreshToken = async (req: Request, res: Response) => {
   const { refreshToken } = req.cookies; // 쿠키에서 Refresh Token 추출
 
