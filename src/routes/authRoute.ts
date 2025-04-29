@@ -14,20 +14,33 @@ import { csrfProtection, limiter } from "../utils";
 
 const authRoute = express.Router();
 
+// 일반 로그인
 authRoute.post("/login", csrfProtection, login);
+
+// 카카오 로그인
 authRoute.post("/login/kakao", kakaoLogin);
+
+// 구글 로그인
 authRoute.post("/login/google", googleLogin);
+
+// 회원가입
 authRoute.post("/register", register);
+
+// 로그아웃
 authRoute.post("/logout", csrfProtection, logout);
-
-// 비밀번호 재설정 관련
-authRoute.patch("/resetPassword", csrfProtection, resetPassword);
-
-// 이메일 인증 관련
-authRoute.post("/sendVerifyEmail", sendVerifyEmail);
-authRoute.post("/verifyEmailCode", verifyEmailCode);
 
 // 리프레쉬 토큰
 authRoute.post("/token/refresh", csrfProtection, limiter, refreshToken); // 테스트 안해봄
+
+// 비밀번호 재설정 관련 - 미연동
+authRoute.patch("/resetPassword", csrfProtection, resetPassword);
+
+// 이메일 인증 요청
+authRoute.post("/sendVerifyEmail", sendVerifyEmail);
+
+// 이메일 인증 코드 확인
+authRoute.post("/verifyEmailCode", verifyEmailCode);
+
+
 
 export default authRoute;
