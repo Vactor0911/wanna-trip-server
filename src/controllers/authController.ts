@@ -28,6 +28,23 @@ export const register = async (req: Request, res: Response) => {
       });
       return;
     }
+    // // 비밀번호 검증 추가
+    // if (
+    //   !validator.isStrongPassword(password, {
+    //     minLength: 8,
+    //     minNumbers: 1,
+    //     minSymbols: 1,
+    //     minUppercase: 0,
+    //   }) ||
+    //   !allowedSymbolsForPassword.test(password) // 허용된 문자만 포함하지 않은 경우
+    // ) {
+    //   res.status(400).json({
+    //     success: false,
+    //     message:
+    //       "비밀번호는 8자리 이상, 영문, 숫자, 특수문자(!@#$%^&*?)를 포함해야 합니다.",
+    //   });
+    //   return;
+    // }
 
     // Step 2: 비밀번호 암호화
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -414,30 +431,19 @@ export const googleLogin = async (req: Request, res: Response) => {
 
 // 이메일 인증 코드 전송
 export const sendVerifyEmail = async (req: Request, res: Response) => {
-  const { email, id, purpose, name = "" } = req.body; // 요청에 id 추가, name은 선택적
+  const { user_uuid, email, purpose } = req.body; // purpose : "verifyEmailCode" / "modifyInfo"
+  // 내 정보 수정 기능 추가 시 요청 컬럼 추가
 
-  if (!email || !id) {
+  if (!email) {
     res
       .status(400)
-      .json({ success: false, message: "학번과 이메일 주소가 필요합니다." });
+      .json({ success: false, message: "이메일 주소가 필요합니다." });
     return;
   }
   if (!validator.isEmail(email)) {
     res
       .status(400)
-      .json({ success: false, message: "유효한 이메일 주소를 입력하세요." });
-    return;
-  }
-
-  if (
-    !validator.isNumeric(id, { no_symbols: true }) ||
-    id.length < 7 ||
-    id.length > 10
-  ) {
-    res.status(400).json({
-      success: false,
-      message: "학번은 숫자로만 구성된 7~10자리 값이어야 합니다.",
-    });
+      .json({ success: false, message: "유효한 이메일 주소를 입력해주세요." });
     return;
   }
 
@@ -447,65 +453,20 @@ export const sendVerifyEmail = async (req: Request, res: Response) => {
     await connection.beginTransaction(); // 트랜잭션 시작
 
     switch (purpose) {
-      case "resetPassword":
-        const resetRows = await connection.query(
-          "SELECT id, email, state FROM user WHERE id = ? AND email = ?",
-          [id, email]
-        );
-        const resetUser = resetRows[0];
-
-        if (!resetUser) {
-          res.status(404).json({
-            success: false,
-            message: "학번과 이메일이 일치하는 계정이 없습니다.",
-          });
-          return;
-        }
-
-        if (resetUser.state === "inactive") {
-          res.status(400).json({
-            success: false,
-            message: "탈퇴된 계정입니다. 관리자에게 문의해주세요.",
-          });
-          return;
-        }
-        break;
-
-      case "verifyAccount":
-        const studentRows = await connection.query(
-          "SELECT student_id FROM student WHERE student_id = ? AND name = ?",
-          [id, name]
-        );
-        const student = studentRows[0];
-
-        if (!student) {
-          res.status(400).json({
-            success: false,
-            message:
-              "해당 학번과 이름에 맞는 학생 정보를 찾을 수 없습니다. 관리자에게 문의하세요.",
-          });
-          return;
-        }
-
+      case "verifyEmailCode": // 이메일 인증
+        // Step 1: 이메일 중복 확인
         const existingUserRows = await connection.query(
-          "SELECT id, email, state FROM user WHERE id = ? OR email = ?",
-          [id, email]
+          "SELECT email, state FROM user WHERE email = ?", // state : "active" / "inactive"
+          [email]
         );
         const existingUser = existingUserRows[0];
 
         if (existingUser) {
-          if (existingUser.id === id) {
-            res.status(400).json({
-              success: false,
-              message: "이미 존재하는 학번입니다. 다른 학번을 사용해주세요.",
-            });
-            return;
-          }
-
           if (existingUser.email === email) {
             if (existingUser.state === "inactive") {
               res.status(400).json({
                 success: false,
+                // 간편 로그인 사용자들의 계정 복구 방식이 필요.
                 message: "탈퇴된 계정입니다. 관리자에게 문의해주세요.",
               });
               return;
@@ -521,52 +482,13 @@ export const sendVerifyEmail = async (req: Request, res: Response) => {
         }
         break;
 
-      case "accountRecovery":
-        const recoveryRows = await connection.query(
-          "SELECT id, email, state FROM user WHERE id = ? AND email = ?",
-          [id, email]
-        );
-        const recoveryUser = recoveryRows[0];
-
-        if (!recoveryUser) {
-          res.status(404).json({
-            success: false,
-            message: "학번과 이메일이 일치하는 계정이 없습니다.",
-          });
-          return;
-        }
-
-        if (recoveryUser.state !== "inactive") {
-          res
-            .status(400)
-            .json({ success: false, message: "이미 활성화된 계정입니다." });
-          return;
-        }
-        break;
-
-      case "modifyInfo":
+      case "modifyInfo": // 내 정보 수정
         const modifyRows = await connection.query(
-          "SELECT id, email FROM user WHERE id = ?",
-          [id]
+          "SELECT email FROM user WHERE user_uuid = ? AND email = ?",
+          [user_uuid, email]
         );
         const modifyUser = modifyRows[0];
 
-        if (!modifyUser) {
-          res.status(404).json({
-            success: false,
-            message: "해당 학번과 일치하는 계정을 찾을 수 없습니다.",
-          });
-          return;
-        }
-
-        if (modifyUser.email === email) {
-          res.status(400).json({
-            success: false,
-            message:
-              "현재 이메일과 동일한 값입니다. 변경할 이메일을 입력해주세요.",
-          });
-          return;
-        }
         break;
 
       default:
@@ -606,9 +528,9 @@ export const sendVerifyEmail = async (req: Request, res: Response) => {
     });
 
     const mailOptions = {
-      from: `"FabLab 예약 시스템" <${process.env.NODEMAILER_USER}>`,
+      from: `"여행갈래?" <${process.env.NODEMAILER_USER}>`,
       to: email,
-      subject: "[FabLab 예약 시스템] 인증번호를 입력해주세요.",
+      subject: "[여행갈래?] 인증번호를 입력해주세요.",
       html: `
         <h1>이메일 인증</h1>
         <div>
@@ -652,7 +574,7 @@ export const verifyEmailCode = async (req: Request, res: Response) => {
   if (!validator.isEmail(email)) {
     res
       .status(400)
-      .json({ success: false, message: "유효한 이메일 주소를 입력하세요." });
+      .json({ success: false, message: "유효한 이메일 주소를 입력해주세요." });
     return;
   }
   if (!validator.isNumeric(code, { no_symbols: true }) || code.length !== 6) {
