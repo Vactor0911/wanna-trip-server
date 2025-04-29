@@ -55,7 +55,7 @@ app.listen(PORT, "0.0.0.0", () => {
 // *** 라우트 정의 시작 ***
 
 // 사용자 계정 관련
-app.use("/api/auth", authRoute); // 사용자 계정 관련 라우트
-app.use("/api/csrf", csrfRoute); // CSRF 토큰 요청 라우트
+app.use("/auth", authRoute); // 사용자 계정 관련 라우트
+app.use("/csrf", csrfRoute); // CSRF 토큰 요청 라우트
 
 // *** 라우트 정의 끝 ***
