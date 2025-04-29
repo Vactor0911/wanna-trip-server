@@ -719,7 +719,7 @@ export const resetPassword = async (req: Request, res: Response) => {
     });
 };
 
-// 토큰 재발급 API
+// 리프레쉬 토큰 재발급
 export const refreshToken = async (req: Request, res: Response) => {
   const { refreshToken } = req.cookies; // 쿠키에서 Refresh Token 추출
 
