@@ -11,43 +11,64 @@ const allowedSymbolsForPassword = /^[a-zA-Z0-9!@#$%^&*?]*$/; // 허용된 문자
 import { dbPool } from "../config/db";
 
 // 사용자 회원가입
-export const register = (req: Request, res: Response) => {
+export const register = async (req: Request, res: Response) => {
   const { email, password, name } = req.body;
 
-  // Step 1: 이메일 중복 확인
-  dbPool
-    .query("SELECT * FROM user WHERE email = ?", [email])
-    .then((rows_email: any) => {
-      if (rows_email.length > 0) {
-        return res
-          .status(400)
-          .json({ success: false, message: "이메일이 이미 존재합니다" });
-      }
+  try {
+    // Step 1: 이메일 중복 확인
+    const rows_email = await dbPool.query(
+      "SELECT * FROM user WHERE email = ?",
+      [email]
+    );
 
-      // Step 2: 비밀번호 암호화
-      return bcrypt.hash(password, 10);
-    })
-    .then((hashedPassword: string) => {
-      // Step 3: 사용자 저장
-      return dbPool.query(
-        "INSERT INTO user (email, password, name) VALUES (?, ?, ?)",
-        [email, hashedPassword, name]
-      );
-    })
-    .then((result: any) => {
-      res
-        .status(201)
-        .json({ success: true, message: "사용자가 성공적으로 등록되었습니다" });
-    })
-    .catch((err: any) => {
-      // Step 4: 에러 처리
-      console.error("서버 오류 발생:", err);
-      res.status(500).json({
+    if (rows_email.length > 0) {
+      res.status(400).json({
         success: false,
-        message: "서버 오류 발생",
-        error: err.message,
+        message: "이메일이 이미 존재합니다.",
       });
+      return;
+    }
+    // // 비밀번호 검증 추가
+    // if (
+    //   !validator.isStrongPassword(password, {
+    //     minLength: 8,
+    //     minNumbers: 1,
+    //     minSymbols: 1,
+    //     minUppercase: 0,
+    //   }) ||
+    //   !allowedSymbolsForPassword.test(password) // 허용된 문자만 포함하지 않은 경우
+    // ) {
+    //   res.status(400).json({
+    //     success: false,
+    //     message:
+    //       "비밀번호는 8자리 이상, 영문, 숫자, 특수문자(!@#$%^&*?)를 포함해야 합니다.",
+    //   });
+    //   return;
+    // }
+
+    // Step 2: 비밀번호 암호화
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Step 3: 사용자 저장
+    await dbPool.query(
+      "INSERT INTO user (email, password, name) VALUES (?, ?, ?)",
+      [email, hashedPassword, name]
+    );
+
+    // Step 4: 성공 응답
+    res.status(201).json({
+      success: true,
+      message: "사용자가 성공적으로 등록되었습니다",
     });
+  } catch (err: any) {
+    // Step 5: 에러 처리
+    console.error("서버 오류 발생:", err);
+    res.status(500).json({
+      success: false,
+      message: "서버 오류 발생",
+      error: err.message,
+    });
+  }
 };
 
 // 사용자 로그인
@@ -145,6 +166,7 @@ export const login = async (req: Request, res: Response) => {
               success: true,
               message: "로그인 성공",
               name: user.name,
+              userUuid: user.user_uuid, // 사용자 UUID
               userId: user.user_id, // 사용자 ID, 프론트에서 사용
               permissions: user.permission, // 사용자 권한, 프론트에서 사용
               accessToken, // Access Token 반환
@@ -219,7 +241,7 @@ export const logout = async (req: Request, res: Response) => {
 
 // 카카오 간편 로그인
 export const kakaoLogin = async (req: Request, res: Response) => {
-  const { email, name, KaKaoAccessToken } = req.body;
+  const { KaKaoAccessToken } = req.body;
 
   try {
     // Step 1: 카카오 사용자 정보 확인
@@ -237,8 +259,8 @@ export const kakaoLogin = async (req: Request, res: Response) => {
 
     // Step 2: 사용자 정보 추출
     const userData = kakaoResponse.data;
-    const kakaoEmail = userData.kakao_account.email || email; // 카카오에서 제공하는 이메일
-    const kakaoName = userData.properties.nickname || name; // 닉네임
+    const kakaoEmail = userData.kakao_account.email; // 카카오에서 제공하는 이메일
+    const kakaoName = userData.properties.nickname; // 닉네임
 
     // Step 3: dbPool에서 사용자 정보 조회
     const rows = await dbPool.query("SELECT * FROM user WHERE email = ?", [
@@ -324,61 +346,81 @@ export const kakaoLogin = async (req: Request, res: Response) => {
 
 // 구글 간편 로그인
 export const googleLogin = async (req: Request, res: Response) => {
-  const { email, name } = req.body;
+  const { googleEmail, googleName } = req.body;
 
   try {
     // Step 1: 사용자 이메일로 조회
     const rows = await dbPool.query("SELECT * FROM user WHERE email = ?", [
-      email,
+      googleEmail,
     ]);
 
+    let user;
+
     if (rows.length === 0) {
-      // Step 2: 신규 사용자라면 dbPool에 삽입
+      // 신규 사용자 등록
       await dbPool.query(
-        "INSERT INTO user (email, name, login_type, status) VALUES (?, ?, ?, ?)",
-        [email, name, "google", "active"] // login_type: google, status: active
+        "INSERT INTO user (email, name, login_type) VALUES (?, ?, ?)",
+        [googleEmail, googleName, "google"]
       );
+
+      // 새로 등록한 사용자 정보 가져오기
+      const newUserRows = await dbPool.query(
+        "SELECT * FROM user WHERE email = ?",
+        [googleEmail]
+      );
+      user = newUserRows[0];
     } else {
-      // Step 3: 기존 사용자라면 정보 업데이트
-      await dbPool.query(
-        "UPDATE user SET name = ?, login_type = ? WHERE email = ?",
-        [name, "google", email]
-      );
+      // 기존 사용자
+      user = rows[0];
     }
 
-    // Step 4: JWT 생성 = AccessToken 생성
+    // Step 4: Access Token 발급
     const accessToken = jwt.sign(
-      { email, name }, // JWT 페이로드
-      process.env.JWT_SECRET_KEY as string, // 비밀 키
-      { expiresIn: "1h" } // 유효 기간
+      {
+        userId: user.user_id,
+        name: googleName,
+        permission: user.permission,
+        login_type: "google",
+      },
+      process.env.JWT_ACCESS_SECRET!,
+      { expiresIn: "30m" } // Access Token 만료 시간
     );
 
-    // Step 5: RefreshToken 생성
-    const refreshToken = crypto.randomBytes(32).toString("hex"); // Secure Refresh Token
+    // Step 5: Refresh Token 발급
+    const refreshToken = jwt.sign(
+      {
+        userId: user.user_id,
+        name: googleName,
+        permission: user.permission,
+        login_type: "google",
+      },
+      process.env.JWT_REFRESH_SECRET!,
+      { expiresIn: "7d" } // Refresh Token 만료 시간
+    );
 
-    // Step 6: RefreshToken 및 AccessToken dbPool 저장
+    // Step 6: Refresh Token 저장 (DB)
     await dbPool.query(
-      "UPDATE user SET token = ?, refreshToken = ? WHERE email = ?",
-      [accessToken, refreshToken, email]
+      "UPDATE user SET refresh_token = ?, name = ? WHERE email = ?",
+      [refreshToken, googleName, googleEmail]
     );
 
-    await dbPool
-      .query("SELECT user_id FROM user WHERE email = ?", [email])
-      .then((result: any) => {
-        const userId = result[0].user_id;
+    // Step 7: 쿠키에 Refresh Token 저장
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: false, // true: HTTPS 환경에서만 작동, 로컬 테스트에선 false로
+      sameSite: "lax", // 로컬 개발환경에선 반드시 lax로, 배포시 none + secure:true
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7일
+    });
 
-        // Step 7: 성공 응답 반환
-        res.status(200).json({
-          success: true,
-          message: `[ ${name} ] 님 환영합니다!`,
-          userId: Number(userId), // 사용자 ID 반환
-          email,
-          name,
-          login_type: "google",
-          accessToken,
-          refreshToken, // 클라이언트에 반환
-        });
-      });
+    // Step 8: 클라이언트로 응답 반환
+    res.status(200).json({
+      success: true,
+      message: `로그인 성공`,
+      name: googleName,
+      userId: user.user_id, // 사용자 ID 반환
+      permissions: user.permission, // 사용자 권한
+      accessToken, // Access Token 반환
+    });
   } catch (err) {
     console.error("구글 로그인 처리 중 오류 발생:", err);
     res.status(500).json({
@@ -390,30 +432,19 @@ export const googleLogin = async (req: Request, res: Response) => {
 
 // 이메일 인증 코드 전송
 export const sendVerifyEmail = async (req: Request, res: Response) => {
-  const { email, id, purpose, name = "" } = req.body; // 요청에 id 추가, name은 선택적
+  const { user_uuid, email, purpose } = req.body; // purpose : "verifyEmailCode" / "modifyInfo"
+  // 내 정보 수정 기능 추가 시 요청 컬럼 추가
 
-  if (!email || !id) {
+  if (!email) {
     res
       .status(400)
-      .json({ success: false, message: "학번과 이메일 주소가 필요합니다." });
+      .json({ success: false, message: "이메일 주소가 필요합니다." });
     return;
   }
   if (!validator.isEmail(email)) {
     res
       .status(400)
-      .json({ success: false, message: "유효한 이메일 주소를 입력하세요." });
-    return;
-  }
-
-  if (
-    !validator.isNumeric(id, { no_symbols: true }) ||
-    id.length < 7 ||
-    id.length > 10
-  ) {
-    res.status(400).json({
-      success: false,
-      message: "학번은 숫자로만 구성된 7~10자리 값이어야 합니다.",
-    });
+      .json({ success: false, message: "유효한 이메일 주소를 입력해주세요." });
     return;
   }
 
@@ -423,65 +454,20 @@ export const sendVerifyEmail = async (req: Request, res: Response) => {
     await connection.beginTransaction(); // 트랜잭션 시작
 
     switch (purpose) {
-      case "resetPassword":
-        const resetRows = await connection.query(
-          "SELECT id, email, state FROM user WHERE id = ? AND email = ?",
-          [id, email]
-        );
-        const resetUser = resetRows[0];
-
-        if (!resetUser) {
-          res.status(404).json({
-            success: false,
-            message: "학번과 이메일이 일치하는 계정이 없습니다.",
-          });
-          return;
-        }
-
-        if (resetUser.state === "inactive") {
-          res.status(400).json({
-            success: false,
-            message: "탈퇴된 계정입니다. 관리자에게 문의해주세요.",
-          });
-          return;
-        }
-        break;
-
-      case "verifyAccount":
-        const studentRows = await connection.query(
-          "SELECT student_id FROM student WHERE student_id = ? AND name = ?",
-          [id, name]
-        );
-        const student = studentRows[0];
-
-        if (!student) {
-          res.status(400).json({
-            success: false,
-            message:
-              "해당 학번과 이름에 맞는 학생 정보를 찾을 수 없습니다. 관리자에게 문의하세요.",
-          });
-          return;
-        }
-
+      case "verifyEmailCode": // 이메일 인증
+        // Step 1: 이메일 중복 확인
         const existingUserRows = await connection.query(
-          "SELECT id, email, state FROM user WHERE id = ? OR email = ?",
-          [id, email]
+          "SELECT email, state FROM user WHERE email = ?", // state : "active" / "inactive"
+          [email]
         );
         const existingUser = existingUserRows[0];
 
         if (existingUser) {
-          if (existingUser.id === id) {
-            res.status(400).json({
-              success: false,
-              message: "이미 존재하는 학번입니다. 다른 학번을 사용해주세요.",
-            });
-            return;
-          }
-
           if (existingUser.email === email) {
             if (existingUser.state === "inactive") {
               res.status(400).json({
                 success: false,
+                // 간편 로그인 사용자들의 계정 복구 방식이 필요.
                 message: "탈퇴된 계정입니다. 관리자에게 문의해주세요.",
               });
               return;
@@ -497,52 +483,13 @@ export const sendVerifyEmail = async (req: Request, res: Response) => {
         }
         break;
 
-      case "accountRecovery":
-        const recoveryRows = await connection.query(
-          "SELECT id, email, state FROM user WHERE id = ? AND email = ?",
-          [id, email]
-        );
-        const recoveryUser = recoveryRows[0];
-
-        if (!recoveryUser) {
-          res.status(404).json({
-            success: false,
-            message: "학번과 이메일이 일치하는 계정이 없습니다.",
-          });
-          return;
-        }
-
-        if (recoveryUser.state !== "inactive") {
-          res
-            .status(400)
-            .json({ success: false, message: "이미 활성화된 계정입니다." });
-          return;
-        }
-        break;
-
-      case "modifyInfo":
+      case "modifyInfo": // 내 정보 수정
         const modifyRows = await connection.query(
-          "SELECT id, email FROM user WHERE id = ?",
-          [id]
+          "SELECT email FROM user WHERE user_uuid = ? AND email = ?",
+          [user_uuid, email]
         );
         const modifyUser = modifyRows[0];
 
-        if (!modifyUser) {
-          res.status(404).json({
-            success: false,
-            message: "해당 학번과 일치하는 계정을 찾을 수 없습니다.",
-          });
-          return;
-        }
-
-        if (modifyUser.email === email) {
-          res.status(400).json({
-            success: false,
-            message:
-              "현재 이메일과 동일한 값입니다. 변경할 이메일을 입력해주세요.",
-          });
-          return;
-        }
         break;
 
       default:
@@ -582,9 +529,9 @@ export const sendVerifyEmail = async (req: Request, res: Response) => {
     });
 
     const mailOptions = {
-      from: `"FabLab 예약 시스템" <${process.env.NODEMAILER_USER}>`,
+      from: `"여행갈래?" <${process.env.NODEMAILER_USER}>`,
       to: email,
-      subject: "[FabLab 예약 시스템] 인증번호를 입력해주세요.",
+      subject: "[여행갈래?] 인증번호를 입력해주세요.",
       html: `
         <h1>이메일 인증</h1>
         <div>
@@ -628,7 +575,7 @@ export const verifyEmailCode = async (req: Request, res: Response) => {
   if (!validator.isEmail(email)) {
     res
       .status(400)
-      .json({ success: false, message: "유효한 이메일 주소를 입력하세요." });
+      .json({ success: false, message: "유효한 이메일 주소를 입력해주세요." });
     return;
   }
   if (!validator.isNumeric(code, { no_symbols: true }) || code.length !== 6) {
@@ -809,9 +756,10 @@ export const refreshToken = async (req: Request, res: Response) => {
           userId: decoded.userId,
           name: decoded.name,
           permission: decoded.permission,
+          login_type: decoded.login_type,
         },
         process.env.JWT_ACCESS_SECRET!,
-        { expiresIn: "15m" } // Access Token 만료 시간
+        { expiresIn: "30m" } // Access Token 만료 시간
       );
 
       res.status(200).json({
