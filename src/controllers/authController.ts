@@ -75,121 +75,117 @@ export const register = async (req: Request, res: Response) => {
 export const login = async (req: Request, res: Response) => {
   const { email, password } = req.body;
 
-  // Step 0: 탈퇴된 계정인지 확인
-  dbPool
-    .query("SELECT user_id, state FROM user WHERE email = ?", [email])
-    .then((rows: any) => {
-      if (rows.length > 0 && rows[0].state === "inactive") {
-        // 탈퇴된 계정인 경우
-        return Promise.reject({
-          status: 400,
-          message: "탈퇴된 계정입니다. 관리자에게 문의해주세요.",
-        });
-      }
-
-      // Step 1: ID로 사용자 조회
-      return dbPool.query(
-        "SELECT * FROM user WHERE email = ? AND state = 'active'",
-        [email]
-      );
-    })
-    .then((rows: any) => {
-      if (rows.length === 0) {
-        // 사용자가 없는 경우
-        return res.status(401).json({
-          success: false,
-          message: "사용자를 찾을 수 없습니다. 회원가입 후 이용해주세요.",
-        });
-      }
-
-      const user = rows[0];
-
-      // Step 2: 간편 로그인 사용자 확인
-      if (user.login_type !== "normal") {
-        return res.status(401).json({
-          success: false,
-          message:
-            "간편 로그인 사용자는 일반 로그인을 사용할 수 없습니다.\n간편 로그인으로 이용해주세요.",
-        });
-      }
-
-      // Step 3: 암호화된 비밀번호 비교
-      return bcrypt.compare(password, user.password).then((isPasswordMatch) => {
-        if (!isPasswordMatch) {
-          return res.status(401).json({
-            success: false,
-            message: "비밀번호가 일치하지 않습니다. 다시 입력해주세요.",
-          });
-        }
-
-        // Step 3: Access Token 발급
-        const accessToken = jwt.sign(
-          {
-            userId: user.user_id,
-            name: user.name,
-            permission: user.permission,
-            login_type: "normal",
-          },
-          process.env.JWT_ACCESS_SECRET!,
-          { expiresIn: "30m" } // Access Token 만료 시간 30m
-        );
-
-        // Step 4: Refresh Token 발급
-        const refreshToken = jwt.sign(
-          {
-            userId: user.user_id,
-            name: user.name,
-            permission: user.permission,
-            login_type: "normal",
-          },
-          process.env.JWT_REFRESH_SECRET!,
-          { expiresIn: "7d" } // Refresh Token 만료 시간 7d
-        );
-
-        // Step 5: Refresh Token 저장 (DB)
-        return dbPool
-          .query("UPDATE user SET refresh_token = ? WHERE email = ?", [
-            refreshToken,
-            email,
-          ])
-          .then(() => {
-            // Step 6: 쿠키에 Refresh Token 저장
-            res.cookie("refreshToken", refreshToken, {
-              httpOnly: true,
-              secure: false, // true: HTTPS 환경에서만 작동, 로컬 테스트에선 false로
-              sameSite: "lax", // 로컬 개발환경에선 반드시 lax로, 배포시 none + secure:true
-              maxAge: 7 * 24 * 60 * 60 * 1000, // 7일
-            });
-
-            // Step 7: 응답 반환
-            res.status(200).json({
-              success: true,
-              message: "로그인 성공",
-              name: user.name,
-              userUuid: user.user_uuid, // 사용자 UUID
-              userId: user.user_id, // 사용자 ID, 프론트에서 사용
-              permissions: user.permission, // 사용자 권한, 프론트에서 사용
-              accessToken, // Access Token 반환
-            });
-          });
+  try {
+    // Step 0: 탈퇴된 계정인지 확인
+    const rows_check = await dbPool.query("SELECT user_id, state FROM user WHERE email = ?", [email]);
+    
+    if (rows_check.length > 0 && rows_check[0].state === "inactive") {
+      // 탈퇴된 계정인 경우
+      res.status(400).json({
+        success: false,
+        message: "탈퇴된 계정입니다. 관리자에게 문의해주세요.",
       });
-    })
-    .catch((err) => {
-      // 에러 처리
-      if (err.status) {
-        res.status(err.status).json({
-          success: false,
-          message: err.message,
-        });
-      } else {
-        console.error("서버 오류 발생:", err);
-        res.status(500).json({
-          success: false,
-          message: "서버 오류 발생",
-          error: err.message,
-        });
-      }
+      return;
+    }
+
+    // Step 1: ID로 사용자 조회
+    const rows = await dbPool.query(
+      "SELECT * FROM user WHERE email = ? AND state = 'active'",
+      [email]
+    );
+
+    if (rows.length === 0) {
+      // 사용자가 없는 경우
+      res.status(401).json({
+        success: false,
+        message: "사용자를 찾을 수 없습니다. 회원가입 후 이용해주세요.",
+      });
+      return;
+    }
+
+    const user = rows[0];
+
+    // Step 2: 간편 로그인 사용자 확인
+    if (user.login_type !== "normal") {
+      res.status(401).json({
+        success: false,
+        message:
+          "간편 로그인 사용자는 일반 로그인을 사용할 수 없습니다.\n간편 로그인으로 이용해주세요.",
+      });
+      return;
+    }
+
+    // Step 3: 암호화된 비밀번호 비교
+    const isPasswordMatch = await bcrypt.compare(password, user.password);
+    
+    if (!isPasswordMatch) {
+      res.status(401).json({
+        success: false,
+        message: "비밀번호가 일치하지 않습니다. 다시 입력해주세요.",
+      });
+      return;
+    }
+
+    // Step 4: Access Token 발급
+    const accessToken = jwt.sign(
+      {
+        userId: user.user_id,
+        name: user.name,
+        permission: user.permission,
+        login_type: "normal",
+      },
+      process.env.JWT_ACCESS_SECRET!,
+      { expiresIn: "30m" } // Access Token 만료 시간 30m
+    );
+
+    // Step 5: Refresh Token 발급
+    const refreshToken = jwt.sign(
+      {
+        userId: user.user_id,
+        name: user.name,
+        permission: user.permission,
+        login_type: "normal",
+      },
+      process.env.JWT_REFRESH_SECRET!,
+      { expiresIn: "7d" } // Refresh Token 만료 시간 7d
+    );
+
+    // Step 6: Refresh Token 저장 (DB)
+    await dbPool.query(
+      "UPDATE user SET refresh_token = ? WHERE email = ?", 
+      [refreshToken, email]
+    );
+
+    // Step 7: 쿠키에 Refresh Token 저장
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: false, // true: HTTPS 환경에서만 작동, 로컬 테스트에선 false로
+      sameSite: "lax", // 로컬 개발환경에선 반드시 lax로, 배포시 none + secure:true
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7일
     });
+
+    // Step 8: 응답 반환
+    res.status(200).json({
+      success: true,
+      message: "로그인 성공",
+      name: user.name,
+      userUuid: user.user_uuid, // 사용자 UUID
+      userId: user.user_id, // 사용자 ID, 프론트에서 사용
+      permissions: user.permission, // 사용자 권한, 프론트에서 사용
+      accessToken, // Access Token 반환
+    });
+    return;
+    
+  } catch (err: any) {
+    // 에러 처리
+    console.error("서버 오류 발생:", err);
+    res.status(err.status || 500).json({
+      success: false,
+      message: err.message || "서버 오류 발생",
+      error: err.message,
+    });
+    return;
+  }
 };
 
 // 사용자 로그아웃
@@ -204,39 +200,40 @@ export const logout = async (req: Request, res: Response) => {
     return;
   }
 
-  dbPool
-    .query("SELECT * FROM user WHERE refresh_token = ?", [refreshToken])
-    .then((rows: any[]) => {
-      if (rows.length === 0) {
-        return res.status(404).json({
-          success: false,
-          message: "유효하지 않은 Refresh Token입니다.",
-        });
-      }
-
-      // DB에서 Refresh Token 제거
-      return dbPool
-        .query("UPDATE user SET refresh_token = NULL WHERE refresh_token = ?", [
-          refreshToken,
-        ])
-        .then(() => {
-          // 클라이언트에서 쿠키 삭제
-          res.clearCookie("accessToken");
-          res.clearCookie("refreshToken");
-
-          return res.status(200).json({
-            success: true,
-            message: "로그아웃이 성공적으로 완료되었습니다.",
-          });
-        });
-    })
-    .catch((err) => {
-      console.error("로그아웃 처리 중 서버 오류 발생:", err);
-      res.status(500).json({
+  try {
+    // DB에서 유효한 토큰인지 확인
+    const rows = await dbPool.query("SELECT * FROM user WHERE refresh_token = ?", [refreshToken]);
+    
+    if (rows.length === 0) {
+      res.status(404).json({
         success: false,
-        message: "로그아웃 처리 중 오류가 발생했습니다.",
+        message: "유효하지 않은 Refresh Token입니다.",
       });
+      return;
+    }
+
+    // DB에서 Refresh Token 제거
+    await dbPool.query("UPDATE user SET refresh_token = NULL WHERE refresh_token = ?", [
+      refreshToken,
+    ]);
+    
+    // 클라이언트에서 쿠키 삭제
+    res.clearCookie("accessToken");
+    res.clearCookie("refreshToken");
+
+    res.status(200).json({
+      success: true,
+      message: "로그아웃이 성공적으로 완료되었습니다.",
     });
+    return;
+  } catch (err) {
+    console.error("로그아웃 처리 중 서버 오류 발생:", err);
+    res.status(500).json({
+      success: false,
+      message: "로그아웃 처리 중 오류가 발생했습니다.",
+    });
+    return;
+  }
 };
 
 // 카카오 간편 로그인
