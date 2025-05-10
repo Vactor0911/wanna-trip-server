@@ -5,6 +5,9 @@ import cookieParser from "cookie-parser"; // 쿠키 파싱 미들웨어 추가
 import bodyParser from "body-parser"; // 바디 파서 미들웨어 추가
 import authRoute from "./routes/authRoute";
 import csrfRoute from "./routes/csrfRoute";
+import templateRoute from "./routes/templateRoute";
+import boardRoute from "./routes/boardRoute";
+import cardRoute from "./routes/cardRoute";
 
 // .env 파일 로드
 dotenv.config();
@@ -57,5 +60,10 @@ app.listen(PORT, "0.0.0.0", () => {
 // 사용자 계정 관련
 app.use("/auth", authRoute); // 사용자 계정 관련 라우트
 app.use("/csrf", csrfRoute); // CSRF 토큰 요청 라우트
+
+// 템플릿 관련
+app.use("/template", templateRoute); // 템플릿 관련 라우트
+app.use("/board", boardRoute); // 보드 관련 라우트
+app.use("/card", cardRoute); // 카드 관련 라우트
 
 // *** 라우트 정의 끝 ***
