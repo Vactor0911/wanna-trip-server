@@ -11,7 +11,7 @@ import { dbPool } from "../config/db";
 
 // 사용자 회원가입
 export const register = async (req: Request, res: Response) => {
-  const { email, password, name } = req.body;
+  const { email, password, name, terms } = req.body;
 
   try {
     // Step 1: 이메일 중복 확인
@@ -63,8 +63,8 @@ export const register = async (req: Request, res: Response) => {
 
     // Step 3: 사용자 저장
     await dbPool.query(
-      "INSERT INTO user (email, password, name) VALUES (?, ?, ?)",
-      [email, hashedPassword, name]
+      "INSERT INTO user (email, password, name, terms) VALUES (?, ?, ?, ?)",
+      [email, hashedPassword, name, JSON.stringify(terms, null, " ")]
     );
 
     // Step 4: 성공 응답
@@ -426,10 +426,16 @@ export const googleLogin = async (req: Request, res: Response) => {
         return;
       }
     } else {
-      // 신규 사용자 등록
+      // 신규 사용자 등록: 간편 로그인 시 필수 약관(privacy)을 자동 체크
       await dbPool.query(
-        "INSERT INTO user (email, name, login_type) VALUES (?, ?, ?)",
-        [googleEmail, googleName, "google"]
+        "INSERT INTO user (email, name, login_type, provider_id, terms) VALUES (?, ?, ?, ?, ?)",
+        [
+          googleEmail,
+          googleName,
+          "google",
+          null,
+          '{"privacy": true, "location": false}',
+        ]
       );
 
       // 새로 등록한 사용자 정보 가져오기
@@ -610,15 +616,24 @@ export const sendVerifyEmail = async (req: Request, res: Response) => {
     });
 
     const mailOptions = {
-      from: `"여행갈래?" <${process.env.NODEMAILER_USER}>`,
+      from: `"Wanna Trip" <${process.env.NODEMAILER_USER}>`,
       to: email,
-      subject: "[여행갈래?] 인증번호를 입력해주세요.",
+      subject: "[Wanna Trip] 이메일 인증번호를 입력해주세요.",
       html: `
-        <h1>이메일 인증</h1>
-        <div>
-          <h2>인증번호 [<b>${verificationCode}</b>]를 인증 창에 입력하세요.</h2><br/>
-        </div>
-      `,
+    <div style="max-width:400px;margin:40px auto;padding:32px 24px 24px 24px;border-radius:16px;box-shadow:0 2px 8px rgba(0,0,0,0.06);background:#fff;font-family:'Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',sans-serif;">
+      <h1 style="font-size:24px;font-weight:700;color:#3f87ec;margin-bottom:16px;text-align:center;">Wanna Trip 이메일 인증</h1>
+      <div style="font-size:16px;color:#222;text-align:center;margin-bottom:24px;">
+        아래 인증번호를 입력해 주세요.
+      </div>
+      <div style="margin:0 auto 24px auto;max-width:220px;padding:20px 0;border-radius:12px;background:#f4f6fa;text-align:center;">
+        <h2 style="font-size:32px;letter-spacing:6px;font-weight:700;color:#3f87ec;margin:0;">${verificationCode}</h2>
+      </div>
+      <div style="font-size:14px;color:#888;text-align:center;">
+        인증번호는 5분간만 유효합니다.<br/>
+        본 메일은 발신 전용입니다.
+      </div>
+    </div>
+  `,
     };
 
     await transporter.sendMail(mailOptions);
@@ -875,18 +890,37 @@ export const refreshToken = async (req: Request, res: Response) => {
 export const linkAccount = async (req: Request, res: Response) => {
   const { email, password, socialInfo } = req.body;
 
-  // socialInfo 객체에서 필요한 정보 추출
+  // socialInfo: { socialType: "kakao" | "google",
+  //               socialId?: string | null,
+  //               name: string }
   const socialType = socialInfo?.socialType;
-  const socialId = socialInfo?.socialId;
+  const socialId = socialInfo?.socialId; // 구글은 null일 수 있음
   const name = socialInfo?.name || null;
 
   try {
+    // socialType은 반드시 존재해야 함
+    if (!socialType) {
+      res.status(400).json({
+        success: false,
+        message: "소셜 로그인 정보가 올바르지 않습니다.",
+      });
+      return;
+    }
+    // 구글은 socialId 체크를 생략하고, 그 외는 반드시 socialId가 존재해야 함
+    if (socialType !== "google" && !socialId) {
+      res.status(400).json({
+        success: false,
+        message: "소셜 로그인 정보가 올바르지 않습니다.",
+      });
+      return;
+    }
+
     // 기존 계정 조회
     const rows = await dbPool.query(
       "SELECT * FROM user WHERE email = ? AND state = 'active'",
       [email]
     );
-
+    // 사용자가 존재하지 않거나 탈퇴된 경우
     if (rows.length === 0) {
       res.status(404).json({
         success: false,
@@ -897,10 +931,16 @@ export const linkAccount = async (req: Request, res: Response) => {
 
     const user = rows[0];
 
-    // 일반 계정 연동인 경우 비밀번호 확인
-    if (user.login_type === "normal" && password) {
+    // 일반 계정과 연동하려면 비밀번호가 필요함 (일반 계정인 경우)
+    if (user.login_type === "normal") {
+      if (!password) {
+        res.status(400).json({
+          success: false,
+          message: "일반 계정과 연동하려면 비밀번호가 필요합니다.",
+        });
+        return;
+      }
       const isPasswordMatch = await bcrypt.compare(password, user.password);
-
       if (!isPasswordMatch) {
         res.status(400).json({
           success: false,
@@ -908,40 +948,21 @@ export const linkAccount = async (req: Request, res: Response) => {
         });
         return;
       }
-    } else if (user.login_type !== "normal" && !password) {
-      // 기존 계정이 소셜 계정인 경우 (비밀번호 확인 필요 없음)
-      // 이 경우 바로 통과
-    } else {
-      // 기존 계정이 일반 계정인데 비밀번호를 제공하지 않은 경우
-      res.status(400).json({
-        success: false,
-        message: "일반 계정과 연동하려면 비밀번호가 필요합니다.",
-      });
-      return;
     }
 
-    // 이미 연동된 계정인지 확인
-    if (user.login_type === socialType) {
-      res.status(400).json({
-        success: false,
-        message: "이미 해당 계정으로 연동되어 있습니다.",
-      });
-      return;
-    }
+    // 업데이트할 provider_id: 구글인 경우는 그대로, 카카오 등은 전달된 socialId 사용
+    const newProviderId = socialType === "google" ? user.provider_id : socialId;
 
-    // socialType이 google인 경우에는 socialId의 유무를 체크하지 않도록 함
-    if ((socialType !== "google" && !socialId) || !socialType) {
-      res.status(400).json({
-        success: false,
-        message: "소셜 로그인 정보가 올바르지 않습니다.",
-      });
-      return;
-    }
+    // DB에 저장된 기존 terms 값을 JSON.parse하여 수정한 후, 원하는 포맷으로 다시 문자열화
+    const existingTerms = user.terms ? JSON.parse(user.terms) : {};
+    existingTerms.privacy = true; // 필수 약관은 항상 true
 
-    // 유저 정보 업데이트 - 소셜 연동 정보 저장
+    const formattedTerms = JSON.stringify(existingTerms, null, " ");
+
+    // 업데이트 쿼리: login_type, provider_id, name, terms를 일괄 업데이트
     await dbPool.query(
-      "UPDATE user SET login_type = ?, provider_id = ? WHERE email = ?",
-      [socialType, socialId, email]
+      "UPDATE user SET login_type = ?, provider_id = ?, name = ?, terms = ? WHERE email = ?",
+      [socialType, newProviderId, name, formattedTerms, email]
     );
 
     // Step 1: Access Token 발급
