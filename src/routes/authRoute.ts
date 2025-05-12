@@ -1,7 +1,9 @@
 import express from "express";
 import {
+  checkAccountLink,
   googleLogin,
   kakaoLogin,
+  linkAccount,
   login,
   logout,
   refreshToken,
@@ -22,6 +24,12 @@ authRoute.post("/login/kakao", kakaoLogin);
 
 // 구글 간편 로그인
 authRoute.post("/login/google", googleLogin);
+
+// 계정 연동
+authRoute.post("/link/account", linkAccount);
+
+// 계정 연동 상태 확인
+authRoute.post("/check/account/link", checkAccountLink);
 
 // 회원가입
 authRoute.post("/register", register);
