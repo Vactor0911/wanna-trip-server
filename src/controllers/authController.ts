@@ -595,9 +595,8 @@ export const sendVerifyEmail = async (req: Request, res: Response) => {
     const verificationCode = generateRandomCode(6);
 
     // Step 2: 인증 코드 저장 (유효 기간 5분)
-    const expiresAt = new Date(
-      new Date().getTime() + 9 * 60 * 60 * 1000 + 5 * 60 * 1000
-    ); // 5분 후
+    // 이건 나중에 한국 표준시로 바꿔야 함
+    const expiresAt = new Date(new Date().getTime() + 5 * 60 * 1000); // 정확히 5분 후
     await connection.query(
       "INSERT INTO email_verification (email, verification_code, expires_at) VALUES (?, ?, ?)",
       [email, verificationCode, expiresAt]
@@ -953,8 +952,18 @@ export const linkAccount = async (req: Request, res: Response) => {
     // 업데이트할 provider_id: 구글인 경우는 그대로, 카카오 등은 전달된 socialId 사용
     const newProviderId = socialType === "google" ? user.provider_id : socialId;
 
-    // DB에 저장된 기존 terms 값을 JSON.parse하여 수정한 후, 원하는 포맷으로 다시 문자열화
-    const existingTerms = user.terms ? JSON.parse(user.terms) : {};
+    // terms 값을 안전하게 처리
+    let existingTerms;
+    try {
+      // 문자열인 경우만 JSON.parse 시도
+      existingTerms =
+        typeof user.terms === "string"
+          ? JSON.parse(user.terms)
+          : user.terms || {};
+    } catch (e) {
+      console.warn("Terms parsing failed:", e);
+      existingTerms = {}; // 파싱 실패시 빈 객체로 초기화
+    }
     existingTerms.privacy = true; // 필수 약관은 항상 true
 
     const formattedTerms = JSON.stringify(existingTerms, null, " ");
