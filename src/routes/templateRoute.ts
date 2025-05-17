@@ -24,17 +24,19 @@ router.get("/", getUserTemplates);
 // 새 템플릿 생성
 router.post("/", createTemplate);
 
-// UUID로 템플릿 조회 (프론트에서 URL 접근 시 사용)
-router.get("/uuid/:templateUuid", getTemplateByUuid);
-
-// 템플릿 상세 조회
-router.get("/:templateId", getTemplateDetail);
-
-// 템플릿 수정
-router.put("/:templateId", updateTemplate);
-
 // 템플릿 삭제
 router.delete("/:templateId", deleteTemplate);
+
+// UUID로 특정 템플릿 조회 (프론트에서 URL 접근 시 사용)
+router.get("/uuid/:templateUuid", getTemplateByUuid);
+
+// 템플릿 상세 조회 - 미연동
+router.get("/:templateId", getTemplateDetail);
+
+// 템플릿 수정 - 미연동
+router.put("/:templateId", updateTemplate);
+
+
 
 
 export default router;

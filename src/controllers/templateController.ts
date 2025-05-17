@@ -55,7 +55,6 @@ export const createTemplate = async (req: Request, res: Response) => {
     res.status(201).json({
       success: true,
       message: "템플릿이 성공적으로 생성되었습니다.",
-      templateId,
     });
   } catch (err) {
     console.error("템플릿 생성 오류:", err);
