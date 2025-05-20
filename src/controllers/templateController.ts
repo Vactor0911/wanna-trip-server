@@ -80,8 +80,8 @@ export const createDefaultTemplate = async (
 
     // 초기 보드 생성 (Day 1)
     await dbPool.query(
-      "INSERT INTO board (template_id, day_number, title) VALUES (?, ?, ?)",
-      [templateId, 1, "Day 1"]
+      "INSERT INTO board (template_id, day_number) VALUES (?, ?)",
+      [templateId, 1]
     );
 
     return templateId;
