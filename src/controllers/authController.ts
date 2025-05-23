@@ -938,25 +938,6 @@ export const linkAccount = async (req: Request, res: Response) => {
 
     const user = rows[0];
 
-    // 일반 계정과 연동하려면 비밀번호가 필요함 (일반 계정인 경우)
-    if (user.login_type === "normal") {
-      if (!password) {
-        res.status(400).json({
-          success: false,
-          message: "일반 계정과 연동하려면 비밀번호가 필요합니다.",
-        });
-        return;
-      }
-      const isPasswordMatch = await bcrypt.compare(password, user.password);
-      if (!isPasswordMatch) {
-        res.status(400).json({
-          success: false,
-          message: "비밀번호가 일치하지 않습니다.",
-        });
-        return;
-      }
-    }
-
     // 업데이트할 provider_id: 구글인 경우는 그대로, 카카오 등은 전달된 socialId 사용
     const newProviderId = socialType === "google" ? user.provider_id : socialId;
 
