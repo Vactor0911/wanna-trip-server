@@ -8,7 +8,7 @@ import validator from "validator"; // 유효성 검사 라이브러리
 const allowedSymbolsForPassword = /^[a-zA-Z0-9!@#$%^&*?]*$/; // 허용된 문자만 포함하는지 확인
 
 import { dbPool } from "../config/db";
-import { createDefaultTemplate, mergeTemplates } from "./templateController";
+import { mergeTemplates } from "./templateController";
 
 // 사용자 회원가입
 export const register = async (req: Request, res: Response) => {
@@ -67,17 +67,19 @@ export const register = async (req: Request, res: Response) => {
       "INSERT INTO user (email, password, name, terms) VALUES (?, ?, ?, ?)",
       [email, hashedPassword, name, JSON.stringify(terms, null, " ")]
     );
-    // MySQL의 경우 insertId로 user_id를 가져올 수 있음
-    const userId = insertResult.insertId;
 
-    // 회원가입이 완료된 후 기본 템플릿 생성
-    try {
-      const templateId = await createDefaultTemplate(userId);
-      console.log(`사용자 ${userId}의 기본 템플릿(${templateId}) 생성 완료`);
-    } catch (templateErr) {
-      console.error("기본 템플릿 생성 실패:", templateErr);
-      // 템플릿 생성 실패해도 회원가입은 성공으로 처리
-    }
+    //TODO: 회원가입 시 기본 템플릿 생성해줄지 선택해야함.
+    // // MySQL의 경우 insertId로 user_id를 가져올 수 있음
+    // const userId = insertResult.insertId;
+
+    // // 회원가입이 완료된 후 기본 템플릿 생성
+    // try {
+    //   const templateId = await createDefaultTemplate(userId);
+    //   console.log(`사용자 ${userId}의 기본 템플릿(${templateId}) 생성 완료`);
+    // } catch (templateErr) {
+    //   console.error("기본 템플릿 생성 실패:", templateErr);
+    //   // 템플릿 생성 실패해도 회원가입은 성공으로 처리
+    // }
 
     // Step 4: 성공 응답
     res.status(201).json({

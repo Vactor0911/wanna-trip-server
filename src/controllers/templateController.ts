@@ -65,31 +65,32 @@ export const createTemplate = async (req: Request, res: Response) => {
   }
 };
 
+//TODO: 회원가입 시 기본 템플릿 생성해줄지 선택해야함.
 // 회원가입 시 기본 템플릿 생성
-export const createDefaultTemplate = async (
-  userId: number
-): Promise<number> => {
-  try {
-    // 새 템플릿 저장
-    const result = await dbPool.query(
-      "INSERT INTO template (user_id, name) VALUES (?, ?)",
-      [userId, "나의 첫 번째 여행"]
-    );
+// export const createDefaultTemplate = async (
+//   userId: number
+// ): Promise<number> => {
+//   try {
+//     // 새 템플릿 저장
+//     const result = await dbPool.query(
+//       "INSERT INTO template (user_id, name) VALUES (?, ?)",
+//       [userId, "나의 첫 번째 여행"]
+//     );
 
-    const templateId = result.insertId;
+//     const templateId = result.insertId;
 
-    // 초기 보드 생성 (Day 1)
-    await dbPool.query(
-      "INSERT INTO board (template_id, day_number) VALUES (?, ?)",
-      [templateId, 1]
-    );
+//     // 초기 보드 생성 (Day 1)
+//     await dbPool.query(
+//       "INSERT INTO board (template_id, day_number) VALUES (?, ?)",
+//       [templateId, 1]
+//     );
 
-    return templateId;
-  } catch (err) {
-    console.error("기본 템플릿 생성 오류:", err);
-    throw err;
-  }
-};
+//     return templateId;
+//   } catch (err) {
+//     console.error("기본 템플릿 생성 오류:", err);
+//     throw err;
+//   }
+// };
 
 // 특정 템플릿 상세 조회 (보드와 카드 포함)
 export const getTemplateDetail = async (req: Request, res: Response) => {
