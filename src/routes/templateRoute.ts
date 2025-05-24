@@ -8,9 +8,12 @@ import {
   deleteTemplate,
   getTemplateByUuid,
 } from "../controllers/templateController";
-import { csrfProtection } from "../utils";
+import { csrfProtection, limiter } from "../utils";
 
 const router = express.Router();
+
+// 레이트 리밋 적용
+router.use(limiter);
 
 // 사용자 인증 필요한 라우트
 router.use(authenticateToken);
