@@ -8,6 +8,7 @@ import validator from "validator"; // 유효성 검사 라이브러리
 const allowedSymbolsForPassword = /^[a-zA-Z0-9!@#$%^&*?]*$/; // 허용된 문자만 포함하는지 확인
 
 import { dbPool } from "../config/db";
+import { mergeTemplates } from "./templateController";
 
 // 사용자 회원가입
 export const register = async (req: Request, res: Response) => {
@@ -62,10 +63,23 @@ export const register = async (req: Request, res: Response) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Step 3: 사용자 저장
-    await dbPool.query(
+    const insertResult: any = await dbPool.query(
       "INSERT INTO user (email, password, name, terms) VALUES (?, ?, ?, ?)",
       [email, hashedPassword, name, JSON.stringify(terms, null, " ")]
     );
+
+    //TODO: 회원가입 시 기본 템플릿 생성해줄지 선택해야함.
+    // // MySQL의 경우 insertId로 user_id를 가져올 수 있음
+    // const userId = insertResult.insertId;
+
+    // // 회원가입이 완료된 후 기본 템플릿 생성
+    // try {
+    //   const templateId = await createDefaultTemplate(userId);
+    //   console.log(`사용자 ${userId}의 기본 템플릿(${templateId}) 생성 완료`);
+    // } catch (templateErr) {
+    //   console.error("기본 템플릿 생성 실패:", templateErr);
+    //   // 템플릿 생성 실패해도 회원가입은 성공으로 처리
+    // }
 
     // Step 4: 성공 응답
     res.status(201).json({
@@ -428,14 +442,8 @@ export const googleLogin = async (req: Request, res: Response) => {
     } else {
       // 신규 사용자 등록: 간편 로그인 시 필수 약관(privacy)을 자동 체크
       await dbPool.query(
-        "INSERT INTO user (email, name, login_type, provider_id, terms) VALUES (?, ?, ?, ?, ?)",
-        [
-          googleEmail,
-          googleName,
-          "google",
-          null,
-          '{"privacy": true, "location": false}',
-        ]
+        "INSERT INTO user (email, name, login_type, provider_id) VALUES (?, ?, ?, ?)",
+        [googleEmail, googleName, "google", null]
       );
 
       // 새로 등록한 사용자 정보 가져오기
@@ -595,9 +603,8 @@ export const sendVerifyEmail = async (req: Request, res: Response) => {
     const verificationCode = generateRandomCode(6);
 
     // Step 2: 인증 코드 저장 (유효 기간 5분)
-    const expiresAt = new Date(
-      new Date().getTime() + 9 * 60 * 60 * 1000 + 5 * 60 * 1000
-    ); // 5분 후
+    // 이건 나중에 한국 표준시로 바꿔야 함
+    const expiresAt = new Date(new Date().getTime() + 5 * 60 * 1000); // 정확히 5분 후
     await connection.query(
       "INSERT INTO email_verification (email, verification_code, expires_at) VALUES (?, ?, ?)",
       [email, verificationCode, expiresAt]
@@ -931,30 +938,21 @@ export const linkAccount = async (req: Request, res: Response) => {
 
     const user = rows[0];
 
-    // 일반 계정과 연동하려면 비밀번호가 필요함 (일반 계정인 경우)
-    if (user.login_type === "normal") {
-      if (!password) {
-        res.status(400).json({
-          success: false,
-          message: "일반 계정과 연동하려면 비밀번호가 필요합니다.",
-        });
-        return;
-      }
-      const isPasswordMatch = await bcrypt.compare(password, user.password);
-      if (!isPasswordMatch) {
-        res.status(400).json({
-          success: false,
-          message: "비밀번호가 일치하지 않습니다.",
-        });
-        return;
-      }
-    }
-
     // 업데이트할 provider_id: 구글인 경우는 그대로, 카카오 등은 전달된 socialId 사용
     const newProviderId = socialType === "google" ? user.provider_id : socialId;
 
-    // DB에 저장된 기존 terms 값을 JSON.parse하여 수정한 후, 원하는 포맷으로 다시 문자열화
-    const existingTerms = user.terms ? JSON.parse(user.terms) : {};
+    // terms 값을 안전하게 처리
+    let existingTerms;
+    try {
+      // 문자열인 경우만 JSON.parse 시도
+      existingTerms =
+        typeof user.terms === "string"
+          ? JSON.parse(user.terms)
+          : user.terms || {};
+    } catch (e) {
+      console.warn("Terms parsing failed:", e);
+      existingTerms = {}; // 파싱 실패시 빈 객체로 초기화
+    }
     existingTerms.privacy = true; // 필수 약관은 항상 true
 
     const formattedTerms = JSON.stringify(existingTerms, null, " ");
@@ -1002,6 +1000,24 @@ export const linkAccount = async (req: Request, res: Response) => {
       sameSite: "lax", // 로컬 개발환경에선 반드시 lax로, 배포시 none + secure:true
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7일
     });
+
+    // 계정 연동 성공 후 템플릿 병합
+    // sourceUserId: 기존 계정의 user_id, targetUserId: 연동 후 계정의 user_id (동일할 수 있음)
+    const sourceUserId = user.user_id;
+    const targetUserId = user.user_id;
+    try {
+      const mergeSuccess = await mergeTemplates(sourceUserId, targetUserId);
+      if (mergeSuccess) {
+        console.log(
+          `사용자 ${sourceUserId}의 템플릿을 ${targetUserId}로 병합 완료`
+        );
+      } else {
+        console.error(`사용자 ${sourceUserId}의 템플릿 병합 실패`);
+      }
+    } catch (mergeErr) {
+      console.error("템플릿 병합 실패:", mergeErr);
+      // 템플릿 병합 실패해도 계정 연동은 성공으로 처리
+    }
 
     // 성공 응답
     res.status(200).json({
