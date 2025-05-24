@@ -625,22 +625,36 @@ export const sendVerifyEmail = async (req: Request, res: Response) => {
     const mailOptions = {
       from: `"Wanna Trip" <${process.env.NODEMAILER_USER}>`,
       to: email,
-      subject: "[Wanna Trip] 이메일 인증번호를 입력해주세요.",
+      subject: "[Wanna Trip] 인증번호",
       html: `
-    <div style="max-width:400px;margin:40px auto;padding:32px 24px 24px 24px;border-radius:16px;box-shadow:0 2px 8px rgba(0,0,0,0.06);background:#fff;font-family:'Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',sans-serif;">
-      <h1 style="font-size:24px;font-weight:700;color:#3f87ec;margin-bottom:16px;text-align:center;">Wanna Trip 이메일 인증</h1>
-      <div style="font-size:16px;color:#222;text-align:center;margin-bottom:24px;">
-        아래 인증번호를 입력해 주세요.
+      <div style="font-family:'Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',sans-serif; max-width:500px; margin:0 auto;">
+        <!-- 헤더 -->
+        <div style="background-color:#2589ff; color:white; padding:20px; text-align:left;">
+          <h1 style="margin:0; font-size:24px; font-weight:bold;">Wanna Trip 인증번호</h1>
+        </div>
+        
+        <!-- 본문 -->
+        <div style="padding:30px 20px; background-color:white; border:1px solid #e1e1e1; border-top:none;">
+          <p style="font-size:16px; color:#333; margin-bottom:30px;">
+            Wanna Trip 이메일 인증번호입니다.
+          </p>
+          
+          <!-- 인증번호 박스 -->
+          <div style="background-color:#f4f7fd; padding:20px; text-align:center; margin-bottom:30px; border-radius:4px;">
+            <h2 style="font-size:38px; letter-spacing:10px; color:#2589ff; margin:0; font-weight:bold;">${verificationCode}</h2>
+          </div>
+          
+          <!-- 안내문구 -->
+          <p style="font-size:14px; color:#888; margin-top:30px; border-top:1px solid #eee; padding-top:20px;">
+            본 메일은 발신전용입니다.<br>
+            인증번호는 5분간만 유효합니다.
+          </p>
+          <p style="font-size:13px; color:#999; margin-top:15px;">
+            Copyright © WannaTrip Corp. All rights reserved.
+          </p>
+        </div>
       </div>
-      <div style="margin:0 auto 24px auto;max-width:220px;padding:20px 0;border-radius:12px;background:#f4f6fa;text-align:center;">
-        <h2 style="font-size:32px;letter-spacing:6px;font-weight:700;color:#3f87ec;margin:0;">${verificationCode}</h2>
-      </div>
-      <div style="font-size:14px;color:#888;text-align:center;">
-        인증번호는 5분간만 유효합니다.<br/>
-        본 메일은 발신 전용입니다.
-      </div>
-    </div>
-  `,
+      `,
     };
 
     await transporter.sendMail(mailOptions);
