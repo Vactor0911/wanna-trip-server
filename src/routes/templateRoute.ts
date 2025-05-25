@@ -12,9 +12,6 @@ import { csrfProtection, limiter } from "../utils";
 
 const router = express.Router();
 
-// 레이트 리밋 적용
-router.use(limiter);
-
 // 사용자 인증 필요한 라우트
 router.use(authenticateToken);
 
@@ -22,16 +19,16 @@ router.use(authenticateToken);
 router.use(csrfProtection);
 
 // 템플릿 목록 조회
-router.get("/", getUserTemplates);
+router.get("/", limiter, getUserTemplates);
 
 // 새 템플릿 생성
-router.post("/", createTemplate);
+router.post("/", limiter, createTemplate);
 
 // 템플릿 삭제
-router.delete("/:templateId", deleteTemplate);
+router.delete("/:templateId", limiter, deleteTemplate);
 
 // UUID로 특정 템플릿 조회 (프론트에서 URL 접근 시 사용)
-router.get("/uuid/:templateUuid", getTemplateByUuid);
+router.get("/uuid/:templateUuid", limiter, getTemplateByUuid);
 
 // 템플릿 상세 조회 - 미연동
 router.get("/:templateId", getTemplateDetail);
