@@ -26,4 +26,4 @@ jobs:
             git pull origin main
             npm install
             pm2 restart "wanna-trip-server"
-            pm2 logs --lines 10
+            timeout 10s pm2 logs --lines 10
