@@ -8,6 +8,8 @@ import csrfRoute from "./routes/csrfRoute";
 import templateRoute from "./routes/templateRoute";
 import boardRoute from "./routes/boardRoute";
 import cardRoute from "./routes/cardRoute";
+import helmet from 'helmet'; // 보안 관련 HTTP 헤더 설정을 위한 미들웨어
+import { csrfTokenMiddleware } from "./utils";
 
 // .env 파일 로드
 dotenv.config();
@@ -40,10 +42,34 @@ app.use(
     credentials: true,
   })
 ); // CORS 설정, credentials는 프론트와 백엔드의 쿠키 공유를 위해 필요
+
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:"],
+      // 필요시 추가 설정
+    }
+  },
+  // 개발 환경에서는 일부 설정 완화
+  crossOriginResourcePolicy: { 
+    policy: process.env.NODE_ENV === 'production' ? "same-site" : "cross-origin" 
+  },
+}));
+
+
 app.use(express.json()); // JSON 요청을 처리하기 위한 미들웨어
 app.use(cookieParser(process.env.SESSION_SECRET)); // 쿠키 파싱 미들웨어 등록
 app.use(bodyParser.json()); // JSON 파싱 미들웨어 등록
 
+// CSRF 토큰 미들웨어 추가
+app.use(csrfTokenMiddleware);
+// (모든 요청에 req.csrfToken() 함수를 추가)
+// 토큰을 생성하고 쿠키에 저장
+// /csrf/csrfToken 엔드포인트에서 이 함수를 호출할 수 있게 함
+// 검증 기능은 포함하지 않음
 
 // 기본 라우트 설정
 app.get("/", (req, res) => {
