@@ -12,7 +12,7 @@ import {
   sendVerifyEmail,
   verifyEmailCode,
 } from "../controllers/authController";
-import { csrfProtection, limiter } from "../utils";
+import { csrfProtection, refreshTokenLimiter } from "../utils";
 
 const authRoute = express.Router();
 
@@ -44,7 +44,7 @@ authRoute.post("/verifyEmailCode", verifyEmailCode);
 authRoute.post("/logout", csrfProtection, logout);
 
 // 엑세스 토큰 재발급
-authRoute.post("/token/refresh", csrfProtection, limiter, refreshToken);
+authRoute.post("/token/refresh", csrfProtection, refreshTokenLimiter, refreshToken);
 
 // 비밀번호 재설정 관련 - 미연동
 authRoute.patch("/resetPassword", csrfProtection, resetPassword);
