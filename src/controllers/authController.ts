@@ -196,8 +196,10 @@ export const login = async (req: Request, res: Response) => {
     // Step 7: 쿠키에 Refresh Token 저장
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
-      secure: false, // true: HTTPS 환경에서만 작동, 로컬 테스트에선 false로
-      sameSite: "lax", // 로컬 개발환경에선 반드시 lax로, 배포시 none + secure:true
+      secure: process.env.NODE_ENV === "production", // 환경에 따라 동적 설정
+      // true: HTTPS 환경에서만 작동, 로컬 테스트에선 false로
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      // 로컬 개발환경에선 반드시 lax로, 배포시 none + secure:true
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7일
     });
 
@@ -258,7 +260,7 @@ export const logout = async (req: Request, res: Response) => {
     );
 
     // 클라이언트에서 쿠키 삭제
-    res.clearCookie("accessToken");
+    res.clearCookie("csrf-token"); // CSRF 토큰 쿠키 삭제
     res.clearCookie("refreshToken");
 
     res.status(200).json({
@@ -380,8 +382,10 @@ export const kakaoLogin = async (req: Request, res: Response) => {
     // Step 7: 쿠키에 Refresh Token 저장
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
-      secure: false, // true: HTTPS 환경에서만 작동, 로컬 테스트에선 false로
-      sameSite: "lax", // 로컬 개발환경에선 반드시 lax로, 배포시 none + secure:true
+      secure: process.env.NODE_ENV === "production", // 환경에 따라 동적 설정
+      // true: HTTPS 환경에서만 작동, 로컬 테스트에선 false로
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      // 로컬 개발환경에선 반드시 lax로, 배포시 none + secure:true
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7일
     });
 
@@ -487,8 +491,10 @@ export const googleLogin = async (req: Request, res: Response) => {
     // Step 7: 쿠키에 Refresh Token 저장
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
-      secure: false, // true: HTTPS 환경에서만 작동, 로컬 테스트에선 false로
-      sameSite: "lax", // 로컬 개발환경에선 반드시 lax로, 배포시 none + secure:true
+      secure: process.env.NODE_ENV === "production", // 환경에 따라 동적 설정
+      // true: HTTPS 환경에서만 작동, 로컬 테스트에선 false로
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      // 로컬 개발환경에선 반드시 lax로, 배포시 none + secure:true
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7일
     });
 
@@ -1010,8 +1016,10 @@ export const linkAccount = async (req: Request, res: Response) => {
     // Step 4: 쿠키에 Refresh Token 저장
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
-      secure: false, // true: HTTPS 환경에서만 작동, 로컬 테스트에선 false로
-      sameSite: "lax", // 로컬 개발환경에선 반드시 lax로, 배포시 none + secure:true
+      secure: process.env.NODE_ENV === "production", // 환경에 따라 동적 설정
+      // true: HTTPS 환경에서만 작동, 로컬 테스트에선 false로
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      // 로컬 개발환경에선 반드시 lax로, 배포시 none + secure:true
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7일
     });
 

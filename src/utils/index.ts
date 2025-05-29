@@ -1,5 +1,5 @@
-import csurf from "csurf";
 import rateLimit from "express-rate-limit"; // 요청 제한 미들웨어
+import { csrfProtection as csrfProtectionUtil, csrfTokenMiddleware } from './csrfUtil';
 
 // 일반 API용 Rate Limiter
 export const limiter = rateLimit({
@@ -36,13 +36,6 @@ export const refreshTokenLimiter = rateLimit({
   },
 });
 
-// CSRF 미들웨어 초기화
-// 원하는 경로에만 csrfProtection를 추가
-// 예시 app.post("/users/logout", csrfProtection, (req: Request, res: Response) => {
-export const csrfProtection = csurf({
-  cookie: {
-    httpOnly: true,
-    secure: true, // HTTPS 환경에서는 true로 설정
-    sameSite: "none", // CSRF 보호를 위한 설정
-  },
-});
+// CSRF 미들웨어 내보내기
+export const csrfProtection = csrfProtectionUtil;
+export { csrfTokenMiddleware };
