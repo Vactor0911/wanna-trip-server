@@ -180,6 +180,45 @@ export const deleteBoard = async (req: Request, res: Response) => {
   }
 };
 
+// 보드의 모든 카드 삭제 (보드는 유지)
+export const clearBoard = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user.userId;
+    const { boardId } = req.params;
+
+    // 보드 소유자 확인
+    const boards = await dbPool.query(
+      `SELECT b.* 
+      FROM board b
+      JOIN template t ON b.template_id = t.template_id
+      WHERE b.board_id = ? AND t.user_id = ?`,
+      [boardId, userId]
+    );
+
+    if (boards.length === 0) {
+      res.status(404).json({
+        success: false,
+        message: "보드를 찾을 수 없거나 접근 권한이 없습니다.",
+      });
+      return;
+    }
+
+    // 보드에 속한 모든 카드 삭제
+    await dbPool.query("DELETE FROM card WHERE board_id = ?", [boardId]);
+
+    res.status(200).json({
+      success: true,
+      message: "보드의 모든 카드가 성공적으로 삭제되었습니다.",
+    });
+  } catch (err) {
+    console.error("보드 카드 삭제 오류:", err);
+    res.status(500).json({
+      success: false,
+      message: "보드의 카드를 삭제하는 중 오류가 발생했습니다.",
+    });
+  }
+};
+
 // 보드 복제 함수 (바로 다음 위치에 복제)
 export const duplicateBoard = async (req: Request, res: Response) => {
   const connection = await dbPool.getConnection();
