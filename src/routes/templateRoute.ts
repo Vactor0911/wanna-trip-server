@@ -4,9 +4,9 @@ import {
   getUserTemplates,
   createTemplate,
   getTemplateDetail,
-  updateTemplate,
   deleteTemplate,
   getTemplateByUuid,
+  updateTemplateByUuid,
 } from "../controllers/templateController";
 import { csrfProtection, limiter } from "../utils";
 
@@ -27,11 +27,14 @@ router.delete("/:templateId", limiter, authenticateToken, deleteTemplate);
 // UUID로 특정 템플릿 조회 (프론트에서 URL 접근 시 사용)
 router.get("/uuid/:templateUuid", limiter, authenticateToken, getTemplateByUuid);
 
+// UUID로 템플릿 수정 (제목 변경) - 새로 추가된 엔드포인트
+router.put("/uuid/:templateUuid", limiter, authenticateToken, csrfProtection, updateTemplateByUuid);
+
+
 // // 템플릿 상세 조회 - 미연동
 // router.get("/:templateId", getTemplateDetail);
 
-// // 템플릿 수정 - 미연동
-// router.put("/:templateId", updateTemplate);
+
 
 
 

@@ -22,8 +22,6 @@ export const csrfProtection = (
 
   // 쿠키에서 CSRF 토큰 가져오기
   const csrfCookie = req.signedCookies["csrf-token"];
-  console.log("CSRF Token from header:", csrfToken);
-  console.log("CSRF Token from cookie:", csrfCookie);
   if (!csrfToken || !csrfCookie || csrfToken !== csrfCookie) {
     res.status(403).json({
       success: false,

@@ -28,9 +28,9 @@ export const getUserTemplates = async (req: Request, res: Response) => {
 export const createTemplate = async (req: Request, res: Response) => {
   try {
     const userId = req.user.userId;
-    const { name } = req.body;
+    const { title } = req.body;
 
-    if (!name) {
+    if (!title) {
       res.status(400).json({
         success: false,
         message: "템플릿 이름이 필요합니다.",
@@ -40,16 +40,24 @@ export const createTemplate = async (req: Request, res: Response) => {
 
     // 새 템플릿 저장
     const result = await dbPool.query(
-      "INSERT INTO template (user_id, name) VALUES (?, ?)",
-      [userId, name]
+      "INSERT INTO template (user_id, title) VALUES (?, ?)",
+      [userId, title]
     );
 
     const templateId = result.insertId;
 
+    // 새로 생성된 템플릿의 UUID 조회
+    const templates = await dbPool.query(
+      "SELECT template_uuid FROM template WHERE template_id = ?",
+      [templateId]
+    );
+    
+    const templateUuid = templates[0].template_uuid;
+
     // 초기 보드 생성 (Day 1)
     await dbPool.query(
-      "INSERT INTO board (template_id, day_number) VALUES (?, ?)",
-      [templateId, 1]
+      "INSERT INTO board (template_id, day_number, template_uuid) VALUES (?, ?, ?)",
+      [templateId, 1, templateUuid]
     );
 
     res.status(201).json({
@@ -172,6 +180,16 @@ export const getTemplateByUuid = async (req: Request, res: Response) => {
       [template.template_id]
     );
 
+    // 각 보드의 카드 정보 조회
+    for (let i = 0; i < boards.length; i++) {
+      const cards = await dbPool.query(
+        "SELECT * FROM card WHERE board_id = ?",
+        [boards[i].board_id]
+      );
+      boards[i].cards = cards;
+    }
+
+
     // 템플릿에 보드 정보 추가
     template.boards = boards;
 
@@ -188,17 +206,17 @@ export const getTemplateByUuid = async (req: Request, res: Response) => {
   }
 };
 
-// 템플릿 수정
-export const updateTemplate = async (req: Request, res: Response) => {
+// UUID로 템플릿 수정 (제목 변경)
+export const updateTemplateByUuid = async (req: Request, res: Response) => {
   try {
     const userId = req.user.userId;
-    const { templateId } = req.params;
-    const { name } = req.body;
+    const { templateUuid } = req.params;
+    const { title } = req.body;
 
     // 템플릿 소유자 확인
     const templates = await dbPool.query(
-      "SELECT * FROM template WHERE template_id = ? AND user_id = ?",
-      [templateId, userId]
+      "SELECT * FROM template WHERE template_uuid = ? AND user_id = ?",
+      [templateUuid, userId]
     );
 
     if (templates.length === 0) {
@@ -211,8 +229,8 @@ export const updateTemplate = async (req: Request, res: Response) => {
 
     // 템플릿 이름 업데이트
     await dbPool.query(
-      "UPDATE template SET name = ?, updated_at = NOW() WHERE template_id = ?",
-      [name, templateId]
+      "UPDATE template SET title = ?, updated_at = NOW() WHERE template_uuid = ?",
+      [title, templateUuid]
     );
 
     res.status(200).json({
@@ -220,7 +238,7 @@ export const updateTemplate = async (req: Request, res: Response) => {
       message: "템플릿이 성공적으로 업데이트되었습니다.",
     });
   } catch (err) {
-    console.error("템플릿 수정 오류:", err);
+    console.error("UUID로 템플릿 수정 오류:", err);
     res.status(500).json({
       success: false,
       message: "템플릿을 수정하는 중 오류가 발생했습니다.",
