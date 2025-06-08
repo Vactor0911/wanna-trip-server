@@ -6,7 +6,7 @@ export const createCard = async (req: Request, res: Response) => {
   try {
     const userId = req.user.userId;
     const { boardId } = req.params;
-    const { content, startTime, endTime, orderIndex } = req.body;
+    const { content, startTime, endTime, orderIndex, locked } = req.body;
 
     // 보드 소유자 확인
     const boards = await dbPool.query(
@@ -26,8 +26,8 @@ export const createCard = async (req: Request, res: Response) => {
 
     // 새 카드 저장 (content는 텍스트 에디터의 HTML 내용)
     const result = await dbPool.query(
-      "INSERT INTO card (board_id, content, start_time, end_time, order_index) VALUES (?, ?, ?, ?, ?)",
-      [boardId, content, startTime, endTime, orderIndex]
+      "INSERT INTO card (board_id, content, start_time, end_time, order_index, locked) VALUES (?, ?, ?, ?, ?, ?)",
+      [boardId, content, startTime, endTime, orderIndex, locked]
     );
 
     res.status(201).json({
@@ -85,7 +85,7 @@ export const updateCard = async (req: Request, res: Response) => {
   try {
     const userId = req.user.userId;
     const { cardId } = req.params;
-    const { title, content, startTime, endTime, orderIndex } = req.body;
+    const { content, startTime, endTime, orderIndex, locked } = req.body;
 
     // 카드 소유자 확인
     const cards = await dbPool.query(
@@ -106,8 +106,8 @@ export const updateCard = async (req: Request, res: Response) => {
 
     // 카드 업데이트
     await dbPool.query(
-      "UPDATE card SET title = ?, content = ?, start_time = ?, end_time = ?, order_index = ? WHERE card_id = ?",
-      [title, content, startTime, endTime, orderIndex, cardId]
+      "UPDATE card SET content = ?, start_time = ?, end_time = ?, order_index = ?, locked = ? WHERE card_id = ?",
+      [content, startTime, endTime, orderIndex, locked, cardId]
     );
 
     res.status(200).json({
