@@ -14,6 +14,7 @@ import {
   sendVerifyEmail,
   updateNickname,
   updatePassword,
+  uploadProfileImage,
   verifyEmailCode,
 } from "../controllers/authController";
 import { csrfProtection, refreshTokenLimiter } from "../utils";
@@ -63,9 +64,8 @@ authRoute.patch("/me/password", csrfProtection, authenticateToken, updatePasswor
 // 계정 탈퇴
 authRoute.post("/me/delete", csrfProtection, authenticateToken, deleteAccount);
 
-// // 프로필 이미지 업로드
-// authRoute.post("/me/profile-image", csrfProtection, authenticateToken, uploadProfileImage);
-
+// 프로필 이미지 업로드
+authRoute.post("/me/profile-image", csrfProtection, authenticateToken, uploadProfileImage);
 
 // 비밀번호 재설정 관련 ( 로그인 안한 상태) - 미연동
 authRoute.patch("/resetPassword", csrfProtection, resetPassword);
