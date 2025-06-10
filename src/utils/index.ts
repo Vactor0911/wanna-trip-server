@@ -4,7 +4,7 @@ import { csrfProtection as csrfProtectionUtil, csrfTokenMiddleware } from './csr
 // 일반 API용 Rate Limiter
 export const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 분 제한
-  max: 10, // 요청 횟수
+  max: 1000, // 요청 횟수
   standardHeaders: true, // 최신 표준 헤더 포함
   legacyHeaders: false, // 구형 헤더 비활성화
   // 동적 메시지 생성을 위한 함수 사용
