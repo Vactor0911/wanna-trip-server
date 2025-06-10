@@ -51,7 +51,7 @@ export const createTemplate = async (req: Request, res: Response) => {
       "SELECT template_uuid FROM template WHERE template_id = ?",
       [templateId]
     );
-    
+
     const templateUuid = templates[0].template_uuid;
 
     // 초기 보드 생성 (Day 1)
@@ -181,14 +181,28 @@ export const getTemplateByUuid = async (req: Request, res: Response) => {
     );
 
     // 각 보드의 카드 정보 조회
-    for (let i = 0; i < boards.length; i++) {
-      const cards = await dbPool.query(
-        "SELECT * FROM card WHERE board_id = ?",
-        [boards[i].board_id]
-      );
-      boards[i].cards = cards;
-    }
+    // 모든 보드 ID를 배열로 추출
+    const boardIds = boards.map((board) => board.board_id);
 
+    // WHERE board_id IN (?) 조건으로 한 번에 모든 카드 조회
+    const cards = await dbPool.query(
+      `SELECT * FROM card WHERE board_id IN (?)`,
+      [boardIds]
+    );
+
+    // 자바스크립트에서 카드를 보드별로 그룹화
+    const cardsByBoardId = cards.reduce((acc, card) => {
+      if (!acc[card.board_id]) {
+        acc[card.board_id] = [];
+      }
+      acc[card.board_id].push(card);
+      return acc;
+    }, {});
+
+    // 각 보드 객체에 해당하는 카드 배열 할당
+    boards.forEach((board) => {
+      board.cards = cardsByBoardId[board.board_id] || [];
+    });
 
     // 템플릿에 보드 정보 추가
     template.boards = boards;

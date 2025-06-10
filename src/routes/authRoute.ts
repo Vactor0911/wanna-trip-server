@@ -17,7 +17,7 @@ import {
   uploadProfileImage,
   verifyEmailCode,
 } from "../controllers/authController";
-import { csrfProtection, refreshTokenLimiter } from "../utils";
+import { csrfProtection, limiter, refreshTokenLimiter } from "../utils";
 import { authenticateToken } from "../middleware/authenticate";
 
 const authRoute = express.Router();
@@ -53,19 +53,19 @@ authRoute.post("/logout", csrfProtection, logout);
 authRoute.post("/token/refresh", csrfProtection, refreshTokenLimiter, refreshToken);
 
 // 사용자 정보 조회
-authRoute.get("/me", csrfProtection, authenticateToken, getUserInfo);
+authRoute.get("/me", csrfProtection, authenticateToken, limiter, getUserInfo);
 
 // 닉네임 변경
-authRoute.patch("/me/nickname", csrfProtection, authenticateToken, updateNickname);
+authRoute.patch("/me/nickname", csrfProtection, authenticateToken, limiter, updateNickname);
 
 // 비밀번호 변경
-authRoute.patch("/me/password", csrfProtection, authenticateToken, updatePassword);
+authRoute.patch("/me/password", csrfProtection, authenticateToken, limiter, updatePassword);
 
 // 계정 탈퇴
-authRoute.post("/me/delete", csrfProtection, authenticateToken, deleteAccount);
+authRoute.post("/me/delete", csrfProtection, authenticateToken, limiter, deleteAccount);
 
 // 프로필 이미지 업로드
-authRoute.post("/me/profile-image", csrfProtection, authenticateToken, uploadProfileImage);
+authRoute.post("/me/profile-image", csrfProtection, authenticateToken, limiter, uploadProfileImage);
 
 // 비밀번호 재설정 관련 ( 로그인 안한 상태) - 미연동
 authRoute.patch("/resetPassword", csrfProtection, resetPassword);
