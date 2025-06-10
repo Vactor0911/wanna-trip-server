@@ -1,6 +1,8 @@
 import express from "express";
 import {
   checkAccountLink,
+  deleteAccount,
+  getUserInfo,
   googleLogin,
   kakaoLogin,
   linkAccount,
@@ -10,9 +12,13 @@ import {
   register,
   resetPassword,
   sendVerifyEmail,
+  updateNickname,
+  updatePassword,
+  uploadProfileImage,
   verifyEmailCode,
 } from "../controllers/authController";
 import { csrfProtection, refreshTokenLimiter } from "../utils";
+import { authenticateToken } from "../middleware/authenticate";
 
 const authRoute = express.Router();
 
@@ -46,7 +52,22 @@ authRoute.post("/logout", csrfProtection, logout);
 // 엑세스 토큰 재발급
 authRoute.post("/token/refresh", csrfProtection, refreshTokenLimiter, refreshToken);
 
-// 비밀번호 재설정 관련 - 미연동
+// 사용자 정보 조회
+authRoute.get("/me", csrfProtection, authenticateToken, getUserInfo);
+
+// 닉네임 변경
+authRoute.patch("/me/nickname", csrfProtection, authenticateToken, updateNickname);
+
+// 비밀번호 변경
+authRoute.patch("/me/password", csrfProtection, authenticateToken, updatePassword);
+
+// 계정 탈퇴
+authRoute.post("/me/delete", csrfProtection, authenticateToken, deleteAccount);
+
+// 프로필 이미지 업로드
+authRoute.post("/me/profile-image", csrfProtection, authenticateToken, uploadProfileImage);
+
+// 비밀번호 재설정 관련 ( 로그인 안한 상태) - 미연동
 authRoute.patch("/resetPassword", csrfProtection, resetPassword);
 
 
