@@ -10,6 +10,7 @@ import boardRoute from "./routes/boardRoute";
 import cardRoute from "./routes/cardRoute";
 import helmet from 'helmet'; // 보안 관련 HTTP 헤더 설정을 위한 미들웨어
 import { csrfTokenMiddleware } from "./utils";
+import path from 'path';
 
 // .env 파일 로드
 dotenv.config();
@@ -63,6 +64,9 @@ app.use(helmet({
 app.use(express.json()); // JSON 요청을 처리하기 위한 미들웨어
 app.use(cookieParser(process.env.SESSION_SECRET)); // 쿠키 파싱 미들웨어 등록
 app.use(bodyParser.json()); // JSON 파싱 미들웨어 등록
+
+// 정적 파일 서비스 설정
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // CSRF 토큰 미들웨어 추가
 app.use(csrfTokenMiddleware);
