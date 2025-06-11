@@ -1297,7 +1297,7 @@ export const updatePassword = async (req: Request, res: Response) => {
 
 // 계정 탈퇴
 export const deleteAccount = async (req: Request, res: Response) => {
-  const user = req.user as { userId: number };
+  const user = req.user as { userId: number, userUuid: string };
   const { password } = req.body;
   const connection = await dbPool.getConnection();
 
@@ -1343,6 +1343,43 @@ export const deleteAccount = async (req: Request, res: Response) => {
       }
     }
 
+    // 프로필 이미지 파일 삭제 로직 추가
+    try {
+      // 사용자의 프로필 이미지 정보 가져오기
+      if (userInfo.profile_image) {
+        // DB에 저장된 경로에서 파일명 추출
+        const profileImagePath = path.join(
+          __dirname, 
+          "../../", 
+          userInfo.profile_image.substring(1) // 앞의 '/' 제거
+        );
+
+        // 파일이 존재하는지 확인 후 삭제
+        if (fs.existsSync(profileImagePath)) {
+          fs.unlinkSync(profileImagePath);
+          console.log(`사용자 ID ${user.userId}의 프로필 이미지 삭제: ${profileImagePath}`);
+        }
+
+        // 모든 종류의 프로필 이미지 삭제 (확장자 상관없이)
+        const profileDir = path.join(__dirname, "../../uploads/profiles");
+        if (fs.existsSync(profileDir)) {
+          const files = fs.readdirSync(profileDir);
+          const userPrefix = user.userUuid;
+
+          files.forEach((file) => {
+            if (file.startsWith(userPrefix)) {
+              const filePath = path.join(profileDir, file);
+              fs.unlinkSync(filePath);
+              console.log(`사용자의 추가 프로필 이미지 삭제: ${filePath}`);
+            }
+          });
+        }
+      }
+    } catch (error) {
+      // 이미지 삭제 실패해도 계정 탈퇴는 계속 진행
+      console.error("프로필 이미지 삭제 중 오류:", error);
+    }
+
     // 계정 삭제 전에 관련 데이터 처리
     // 사용자의 템플릿 조회
     const templates = await connection.query(
@@ -1376,9 +1413,9 @@ export const deleteAccount = async (req: Request, res: Response) => {
       ]);
     }
 
-    // 사용자 계정 삭제 또는 비활성화
+    // 사용자 계정 삭제
     await connection.query(
-      "UPDATE user SET state = 'inactive' WHERE user_id = ?",
+      "DELETE from user WHERE user_id = ?",
       [user.userId]
     );
 
