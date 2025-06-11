@@ -69,6 +69,7 @@ export const updateCard = async (req: Request, res: Response) => {
     const userId = req.user.userId;
     const { cardId } = req.params;
     const { content, startTime, endTime, orderIndex, locked } = req.body;
+    const isOrderIndexSpecified = orderIndex !== undefined;
 
     // 카드 소유자 확인 및 기존 정보 조회
     const cards = await connection.query(
@@ -90,8 +91,8 @@ export const updateCard = async (req: Request, res: Response) => {
 
     const originalCard = cards[0];
 
-    // order_index가 변경되는 경우 순서 재정렬
-    if (orderIndex !== undefined && orderIndex !== originalCard.order_index) {
+    // order_index가 명시적으로 제공되고, 기존 값과 다른 경우만 순서 변경
+    if (isOrderIndexSpecified && orderIndex !== originalCard.order_index) {
       const oldIndex = originalCard.order_index;
       const newIndex = orderIndex;
 
@@ -110,18 +111,44 @@ export const updateCard = async (req: Request, res: Response) => {
       }
     }
 
-    // 카드 업데이트
-    await connection.query(
-      "UPDATE card SET content = ?, start_time = ?, end_time = ?, order_index = ?, locked = ? WHERE card_id = ?",
-      [
-        content,
-        startTime,
-        endTime,
-        orderIndex || originalCard.order_index,
-        locked,
-        cardId,
-      ]
-    );
+    // 카드 업데이트 - 명시적으로 제공된 값만 사용
+    const updateQuery = "UPDATE card SET ";
+    const updateParams: any[] = []; // 타입 지정
+    const updateFields: string[] = []; // 타입 지정
+
+    if (content !== undefined) {
+      updateFields.push("content = ?");
+      updateParams.push(content);
+    }
+
+    if (startTime !== undefined) {
+      updateFields.push("start_time = ?");
+      updateParams.push(startTime);
+    }
+
+    if (endTime !== undefined) {
+      updateFields.push("end_time = ?");
+      updateParams.push(endTime);
+    }
+
+    if (isOrderIndexSpecified) {
+      updateFields.push("order_index = ?");
+      updateParams.push(orderIndex);
+    }
+
+    if (locked !== undefined) {
+      updateFields.push("locked = ?");
+      updateParams.push(locked);
+    }
+
+    updateParams.push(cardId);
+
+    if (updateFields.length > 0) {
+      await connection.query(
+        updateQuery + updateFields.join(", ") + " WHERE card_id = ?",
+        updateParams
+      );
+    }
 
     await connection.commit();
 
