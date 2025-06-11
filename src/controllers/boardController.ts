@@ -3,17 +3,22 @@ import { dbPool } from "../config/db";
 
 // 새 보드 생성 (맨 뒤에 생성)
 export const createBoard = async (req: Request, res: Response) => {
+  const connection = await dbPool.getConnection(); // 커넥션 획득
+
   try {
+    await connection.beginTransaction(); // 트랜잭션 시작
+    
     const userId = req.user.userId;
     const { templateUuid } = req.params;
 
     // 템플릿 소유자 확인 및 template_id 조회
-    const templates = await dbPool.query(
+    const templates = await connection.query(
       "SELECT template_id FROM template WHERE template_uuid = ? AND user_id = ?",
       [templateUuid, userId]
     );
 
     if (!templates || templates.length === 0) {
+      await connection.rollback(); // 롤백 추가
       res.status(404).json({
         success: false,
         message: "템플릿을 찾을 수 없거나 접근 권한이 없습니다.",
@@ -24,7 +29,7 @@ export const createBoard = async (req: Request, res: Response) => {
     const templateId = templates[0].template_id;
 
     // 현재 가장 큰 day_number 조회
-    const maxDayResult = await dbPool.query(
+    const maxDayResult = await connection.query(
       "SELECT MAX(day_number) as maxDay FROM board WHERE template_id = ?",
       [templateId]
     );
@@ -32,10 +37,12 @@ export const createBoard = async (req: Request, res: Response) => {
     const dayNumber = (maxDayResult[0].maxDay || 0) + 1;
 
     // 새 보드 저장 (template_id와 template_uuid 둘 다 저장)
-    const result = await dbPool.query(
+    const result = await connection.query(
       "INSERT INTO board (template_id, template_uuid, day_number) VALUES (?, ?, ?)",
       [templateId, templateUuid, dayNumber]
     );
+
+    await connection.commit(); // 트랜잭션 커밋
 
     res.status(201).json({
       success: true,
@@ -44,11 +51,14 @@ export const createBoard = async (req: Request, res: Response) => {
       dayNumber,
     });
   } catch (err) {
+    await connection.rollback(); // 오류 시 롤백
     console.error("보드 생성 오류:", err);
     res.status(500).json({
       success: false,
       message: "보드를 생성하는 중 오류가 발생했습니다.",
     });
+  } finally {
+    connection.release(); // 커넥션 반환
   }
 };
 
