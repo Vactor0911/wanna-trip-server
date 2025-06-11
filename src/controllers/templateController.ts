@@ -184,9 +184,9 @@ export const getTemplateByUuid = async (req: Request, res: Response) => {
     // 모든 보드 ID를 배열로 추출
     const boardIds = boards.map((board) => board.board_id);
 
-    // WHERE board_id IN (?) 조건으로 한 번에 모든 카드 조회
+    // 카드 조회 부분
     const cards = await dbPool.query(
-      `SELECT * FROM card WHERE board_id IN (?)`,
+      `SELECT * FROM card WHERE board_id IN (?) ORDER BY board_id, order_index`,
       [boardIds]
     );
 
@@ -199,9 +199,11 @@ export const getTemplateByUuid = async (req: Request, res: Response) => {
       return acc;
     }, {});
 
-    // 각 보드 객체에 해당하는 카드 배열 할당
+    // 각 보드 객체에 카드 배열 할당 부분에 정렬 추가
     boards.forEach((board) => {
-      board.cards = cardsByBoardId[board.board_id] || [];
+      board.cards = (cardsByBoardId[board.board_id] || []).sort(
+        (a, b) => a.order_index - b.order_index
+      );
     });
 
     // 템플릿에 보드 정보 추가
