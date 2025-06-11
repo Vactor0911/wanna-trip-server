@@ -267,14 +267,15 @@ export const duplicateBoard = async (req: Request, res: Response) => {
 
     const newBoardId = newBoardResult.insertId;
 
-    // 원본 보드의 카드 조회
+    // 원본 보드의 카드 조회 (order_index 순으로 정렬)
     const cards = await connection.query(
-      "SELECT * FROM card WHERE board_id = ?",
+      "SELECT * FROM card WHERE board_id = ? ORDER BY order_index ASC",
       [boardId]
     );
 
-    // 카드 복제
-    for (const card of cards) {
+    // 카드 복제 (순서대로 0부터 재할당)
+    for (let i = 0; i < cards.length; i++) {
+      const card = cards[i];
       await connection.query(
         "INSERT INTO card (board_id, content, start_time, end_time, order_index, locked) VALUES (?, ?, ?, ?, ?, ?)",
         [
@@ -282,7 +283,7 @@ export const duplicateBoard = async (req: Request, res: Response) => {
           card.content,
           card.start_time,
           card.end_time,
-          card.order_index,
+          i, // 순서대로 0, 1, 2, 3... 재할당
           card.locked,
         ]
       );
