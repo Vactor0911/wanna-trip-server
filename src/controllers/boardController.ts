@@ -7,7 +7,7 @@ export const createBoard = async (req: Request, res: Response) => {
 
   try {
     await connection.beginTransaction(); // 트랜잭션 시작
-    
+
     const userId = req.user.userId;
     const { templateUuid } = req.params;
 
@@ -192,12 +192,16 @@ export const deleteBoard = async (req: Request, res: Response) => {
 
 // 보드의 모든 카드 삭제 (보드는 유지)
 export const clearBoard = async (req: Request, res: Response) => {
+  const connection = await dbPool.getConnection(); // 커넥션 획득
+
   try {
+    await connection.beginTransaction(); // 트랜잭션 시작
+
     const userId = req.user.userId;
     const { boardId } = req.params;
 
     // 보드 소유자 확인
-    const boards = await dbPool.query(
+    const boards = await connection.query(
       `SELECT b.* 
       FROM board b
       JOIN template t ON b.template_id = t.template_id
@@ -206,6 +210,7 @@ export const clearBoard = async (req: Request, res: Response) => {
     );
 
     if (boards.length === 0) {
+      await connection.rollback(); // 롤백 추가
       res.status(404).json({
         success: false,
         message: "보드를 찾을 수 없거나 접근 권한이 없습니다.",
@@ -214,18 +219,23 @@ export const clearBoard = async (req: Request, res: Response) => {
     }
 
     // 보드에 속한 모든 카드 삭제
-    await dbPool.query("DELETE FROM card WHERE board_id = ?", [boardId]);
+    await connection.query("DELETE FROM card WHERE board_id = ?", [boardId]);
+
+    await connection.commit(); // 트랜잭션 커밋
 
     res.status(200).json({
       success: true,
       message: "보드의 모든 카드가 성공적으로 삭제되었습니다.",
     });
   } catch (err) {
+    await connection.rollback(); // 오류 시 롤백
     console.error("보드 카드 삭제 오류:", err);
     res.status(500).json({
       success: false,
       message: "보드의 카드를 삭제하는 중 오류가 발생했습니다.",
     });
+  } finally {
+    connection.release(); // 커넥션 반환
   }
 };
 
