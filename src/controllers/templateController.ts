@@ -207,18 +207,23 @@ export const getTemplateByUuid = async (req: Request, res: Response) => {
 
 // UUID로 템플릿 수정 (제목 변경)
 export const updateTemplateByUuid = async (req: Request, res: Response) => {
+  const connection = await dbPool.getConnection(); // 커넥션 획득
+
   try {
+    await connection.beginTransaction(); // 트랜잭션 시작
+
     const userId = req.user.userId;
     const { templateUuid } = req.params;
     const { title } = req.body;
 
     // 템플릿 소유자 확인
-    const templates = await dbPool.query(
+    const templates = await connection.query(
       "SELECT * FROM template WHERE template_uuid = ? AND user_id = ?",
       [templateUuid, userId]
     );
 
     if (templates.length === 0) {
+      await connection.rollback(); // 롤백 추가
       res.status(404).json({
         success: false,
         message: "템플릿을 찾을 수 없거나 접근 권한이 없습니다.",
@@ -227,21 +232,26 @@ export const updateTemplateByUuid = async (req: Request, res: Response) => {
     }
 
     // 템플릿 이름 업데이트
-    await dbPool.query(
+    await connection.query(
       "UPDATE template SET title = ?, updated_at = NOW() WHERE template_uuid = ?",
       [title, templateUuid]
     );
+
+    await connection.commit(); // 트랜잭션 커밋
 
     res.status(200).json({
       success: true,
       message: "템플릿이 성공적으로 업데이트되었습니다.",
     });
   } catch (err) {
+    await connection.rollback(); // 오류 시 롤백
     console.error("UUID로 템플릿 수정 오류:", err);
     res.status(500).json({
       success: false,
       message: "템플릿을 수정하는 중 오류가 발생했습니다.",
     });
+  } finally {
+    connection.release(); // 커넥션 반환
   }
 };
 
