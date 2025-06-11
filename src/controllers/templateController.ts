@@ -26,11 +26,16 @@ export const getUserTemplates = async (req: Request, res: Response) => {
 
 // 새 템플릿 생성
 export const createTemplate = async (req: Request, res: Response) => {
+  const connection = await dbPool.getConnection(); // 커넥션 획득
+
   try {
+    await connection.beginTransaction(); // 트랜잭션 시작
+
     const userId = req.user.userId;
     const { title } = req.body;
 
     if (!title) {
+      await connection.rollback(); // 롤백 추가
       res.status(400).json({
         success: false,
         message: "템플릿 이름이 필요합니다.",
@@ -39,7 +44,7 @@ export const createTemplate = async (req: Request, res: Response) => {
     }
 
     // 새 템플릿 저장
-    const result = await dbPool.query(
+    const result = await connection.query(
       "INSERT INTO template (user_id, title) VALUES (?, ?)",
       [userId, title]
     );
@@ -47,7 +52,7 @@ export const createTemplate = async (req: Request, res: Response) => {
     const templateId = result.insertId;
 
     // 새로 생성된 템플릿의 UUID 조회
-    const templates = await dbPool.query(
+    const templates = await connection.query(
       "SELECT template_uuid FROM template WHERE template_id = ?",
       [templateId]
     );
@@ -55,50 +60,28 @@ export const createTemplate = async (req: Request, res: Response) => {
     const templateUuid = templates[0].template_uuid;
 
     // 초기 보드 생성 (Day 1)
-    await dbPool.query(
+    await connection.query(
       "INSERT INTO board (template_id, day_number, template_uuid) VALUES (?, ?, ?)",
       [templateId, 1, templateUuid]
     );
+
+    await connection.commit(); // 트랜잭션 커밋
 
     res.status(201).json({
       success: true,
       message: "템플릿이 성공적으로 생성되었습니다.",
     });
   } catch (err) {
+    await connection.rollback(); // 오류 시 롤백
     console.error("템플릿 생성 오류:", err);
     res.status(500).json({
       success: false,
       message: "템플릿을 생성하는 중 오류가 발생했습니다.",
     });
+  } finally {
+    connection.release(); // 커넥션 반환
   }
 };
-
-//TODO: 회원가입 시 기본 템플릿 생성해줄지 선택해야함.
-// 회원가입 시 기본 템플릿 생성
-// export const createDefaultTemplate = async (
-//   userId: number
-// ): Promise<number> => {
-//   try {
-//     // 새 템플릿 저장
-//     const result = await dbPool.query(
-//       "INSERT INTO template (user_id, name) VALUES (?, ?)",
-//       [userId, "나의 첫 번째 여행"]
-//     );
-
-//     const templateId = result.insertId;
-
-//     // 초기 보드 생성 (Day 1)
-//     await dbPool.query(
-//       "INSERT INTO board (template_id, day_number) VALUES (?, ?)",
-//       [templateId, 1]
-//     );
-
-//     return templateId;
-//   } catch (err) {
-//     console.error("기본 템플릿 생성 오류:", err);
-//     throw err;
-//   }
-// };
 
 // 특정 템플릿 상세 조회 (보드와 카드 포함)
 export const getTemplateDetail = async (req: Request, res: Response) => {
