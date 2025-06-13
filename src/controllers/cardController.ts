@@ -251,7 +251,117 @@ export const deleteCard = async (req: Request, res: Response) => {
 };
 
 export const moveCard = async (req: Request, res: Response) => {
-}
+  const connection = await dbPool.getConnection(); // DB 연결 가져오기
+
+  try {
+    await connection.beginTransaction(); // 트랜잭션 시작
+
+    const userId = req.user.userId; // 요청한 사용자 ID
+    const {
+      sourceBoardId,
+      sourceOrderIndex,
+      destinationBoardId,
+      destinationOrderIndex,
+    } = req.body; // 원본 보드 ID, 원본 카드의 순서 인덱스, 대상 보드 ID, 대상 카드의 순서 인덱스
+
+    // 보드 소유자 확인
+    const boards = await connection.query(
+      `SELECT b.* FROM board b
+      JOIN template t ON b.template_id = t.template_id
+      WHERE b.board_id = ? AND t.user_id = ?`,
+      [sourceBoardId, userId]
+    );
+
+    // 보드 접근 권한 없음
+    if (boards.length === 0) {
+      await connection.rollback();
+      res.status(404).json({
+        success: false,
+        message: "보드를 찾을 수 없거나 접근 권한이 없습니다.",
+      });
+      return;
+    }
+
+    // 같은 보드로 이동하는 경우
+    if (sourceBoardId === destinationBoardId) {
+      // 이동할 카드 order_index를 -1로 설정
+      await connection.query(
+        "UPDATE card SET order_index = -1 WHERE board_id = ? AND order_index = ?",
+        [sourceBoardId, sourceOrderIndex]
+      );
+
+      // 카드 order_index 정렬
+      if (sourceOrderIndex > destinationOrderIndex) {
+        // 대상 카드 이후의 카드들의 order_index를 1씩 증가
+        await connection.query(
+          "UPDATE card SET order_index = order_index + 1 WHERE board_id = ? AND order_index >= ? AND order_index < ?",
+          [destinationBoardId, destinationOrderIndex, sourceOrderIndex]
+        );
+      } else {
+        // 대상 카드 이전의 카드들의 order_index를 1씩 감소
+        await connection.query(
+          "UPDATE card SET order_index = order_index - 1 WHERE board_id = ? AND order_index > ? AND order_index <= ?",
+          [destinationBoardId, sourceOrderIndex, destinationOrderIndex]
+        );
+      }
+
+      // 카드 order_index 업데이트
+      await connection.query(
+        "UPDATE card SET order_index = ? WHERE board_id = ? AND order_index < 0",
+        [destinationOrderIndex, sourceBoardId]
+      );
+    } else {
+      // 다른 보드로 이동하는 경우
+      // 대상 보드에서 해당 위치 이후의 카드들의 order_index를 1씩 증가
+      await connection.query(
+        "UPDATE card SET order_index = order_index + 1 WHERE board_id = ? AND order_index >= ?",
+        [destinationBoardId, destinationOrderIndex]
+      );
+
+      // 대상 보드에서 해당 위치에 카드 삽입
+      const result = await connection.query(
+        `INSERT INTO card (board_id, content, start_time, end_time, order_index, locked)
+         SELECT ?, content, start_time, end_time, ?, locked
+         FROM card
+         WHERE board_id = ? AND order_index = ?`,
+        [
+          destinationBoardId,
+          destinationOrderIndex,
+          sourceBoardId,
+          sourceOrderIndex,
+        ]
+      );
+
+      // 원본 보드에서 해당 카드 삭제
+      await connection.query(
+        "DELETE FROM card WHERE board_id = ? AND order_index = ?",
+        [sourceBoardId, sourceOrderIndex]
+      );
+
+      // 원본 보드에서 해당 카드 이후의 카드들의 order_index를 1씩 감소
+      await connection.query(
+        "UPDATE card SET order_index = order_index - 1 WHERE board_id = ? AND order_index > ?",
+        [sourceBoardId, sourceOrderIndex]
+      );
+    }
+
+    await connection.commit(); // 트랜잭션 커밋
+
+    res.status(200).json({
+      success: true,
+      message: "카드가 성공적으로 이동되었습니다.",
+    });
+  } catch (err) {
+    await connection.rollback();
+    console.error("카드 이동 오류:", err);
+    res.status(500).json({
+      success: false,
+      message: "카드를 이동하는 중 오류가 발생했습니다.",
+    });
+  } finally {
+    connection.release();
+  }
+};
 
 // // 특정 카드 조회
 // export const getCard = async (req: Request, res: Response) => {
