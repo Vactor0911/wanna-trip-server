@@ -55,23 +55,23 @@ export const addCard = async (req: Request, res: Response) => {
     } else {
       // 최대 order_index + 1로 설정
       orderIndex = maxOrderResult[0].maxOrder + 1;
-
-      // 새 카드 저장 (지정된 위치에)
-      const result = await connection.query(
-        "INSERT INTO card (board_id, content, start_time, end_time, order_index, locked) VALUES (?, ?, ?, ?, ?, ?)",
-        [boardId, content, startTime, endTime, orderIndex, isLocked]
-      );
-
-      await connection.commit(); // 트랜잭션 커밋
-
-      // 성공 응답
-      res.status(200).json({
-        success: true,
-        message: "카드가 성공적으로 생성되었습니다.",
-        cardId: result.insertId,
-      });
-      return;
     }
+
+    // 새 카드 저장 (지정된 위치에)
+    const result = await connection.query(
+      "INSERT INTO card (board_id, content, start_time, end_time, order_index, locked) VALUES (?, ?, ?, ?, ?, ?)",
+      [boardId, content, startTime, endTime, orderIndex, isLocked]
+    );
+
+    await connection.commit(); // 트랜잭션 커밋
+
+    // 성공 응답
+    res.status(200).json({
+      success: true,
+      message: "카드가 성공적으로 생성되었습니다.",
+      cardId: Number(result.insertId),
+    });
+    return;
   } catch (err) {
     await connection.rollback(); // 트랜잭션 롤백
 
@@ -83,64 +83,6 @@ export const addCard = async (req: Request, res: Response) => {
     });
   } finally {
     connection.release(); // DB 연결 해제
-  }
-};
-
-export const createCard = async (req: Request, res: Response) => {
-  const connection = await dbPool.getConnection();
-
-  try {
-    await connection.beginTransaction();
-    const userId = req.user.userId;
-    const { boardId } = req.params;
-    const { content, startTime, endTime, locked } = req.body;
-
-    // 보드 소유자 확인
-    const boards = await connection.query(
-      `SELECT b.* FROM board b
-      JOIN template t ON b.template_id = t.template_id
-      WHERE b.board_id = ? AND t.user_id = ?`,
-      [boardId, userId]
-    );
-
-    if (boards.length === 0) {
-      await connection.rollback();
-      res.status(404).json({
-        success: false,
-        message: "보드를 찾을 수 없거나 접근 권한이 없습니다.",
-      });
-      return;
-    }
-
-    // 해당 보드의 최대 order_index 조회하여 그 다음 번호로 설정
-    const maxOrderResult = await connection.query(
-      "SELECT COALESCE(MAX(order_index), -1) as maxOrder FROM card WHERE board_id = ?",
-      [boardId]
-    );
-    const orderIndex = maxOrderResult[0].maxOrder + 1;
-
-    // 새 카드 저장 (맨 마지막 위치에)
-    const result = await connection.query(
-      "INSERT INTO card (board_id, content, start_time, end_time, order_index, locked) VALUES (?, ?, ?, ?, ?, ?)",
-      [boardId, content, startTime, endTime, orderIndex, locked]
-    );
-
-    await connection.commit();
-
-    res.status(201).json({
-      success: true,
-      message: "카드가 성공적으로 생성되었습니다.",
-      cardId: Number(result.insertId),
-    });
-  } catch (err) {
-    await connection.rollback();
-    console.error("카드 생성 오류:", err);
-    res.status(500).json({
-      success: false,
-      message: "카드를 생성하는 중 오류가 발생했습니다.",
-    });
-  } finally {
-    connection.release();
   }
 };
 
