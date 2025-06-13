@@ -14,7 +14,7 @@ const router = express.Router();
 router.use(csrfProtection);
 
 // 새 카드 생성
-router.post("/:boardId", limiter, authenticateToken, createCard);
+router.post("/:boardId/:index?", limiter, authenticateToken, createCard);
 
 // 카드 수정 (텍스트 에디터 내용 업데이트 포함)
 router.put("/:cardId", limiter, authenticateToken, updateCard);
