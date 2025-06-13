@@ -1,15 +1,17 @@
 import { Request, Response } from "express";
 import { dbPool } from "../config/db";
+import { clamp } from "../utils";
 
 // 새 카드 생성
-export const createCard = async (req: Request, res: Response) => {
-  const connection = await dbPool.getConnection();
+export const addCard = async (req: Request, res: Response) => {
+  const connection = await dbPool.getConnection(); // DB 연결 가져오기
 
   try {
-    await connection.beginTransaction();
-    const userId = req.user.userId;
-    const { boardId } = req.params;
-    const { content, startTime, endTime, locked } = req.body;
+    await connection.beginTransaction(); // 트랜잭션 시작
+
+    const userId = req.user.userId; // 요청한 사용자 ID
+    const { boardId, index } = req.params; // URL 파라미터 (보드ID, 인덱스)
+    const { content, startTime, endTime, isLocked } = req.body; // 카드 내용, 시작 시간, 종료 시간, 잠금 여부
 
     // 보드 소유자 확인
     const boards = await connection.query(
@@ -19,6 +21,7 @@ export const createCard = async (req: Request, res: Response) => {
       [boardId, userId]
     );
 
+    // 보드 접근 권한 없음
     if (boards.length === 0) {
       await connection.rollback();
       res.status(404).json({
@@ -28,35 +31,58 @@ export const createCard = async (req: Request, res: Response) => {
       return;
     }
 
-    // 해당 보드의 최대 order_index 조회하여 그 다음 번호로 설정
+    let orderIndex: number;
+
+    // 해당 보드의 최대 order_index 조회
     const maxOrderResult = await connection.query(
       "SELECT COALESCE(MAX(order_index), -1) as maxOrder FROM card WHERE board_id = ?",
       [boardId]
     );
-    const orderIndex = maxOrderResult[0].maxOrder + 1;
 
-    // 새 카드 저장 (맨 마지막 위치에)
+    // 인덱스가 주어진 경우
+    if (index !== undefined) {
+      // 인덱스를 정수로 캐스팅
+      orderIndex = parseInt(index, 10);
+
+      // 인덱스 범위 조정
+      orderIndex = clamp(orderIndex, 0, maxOrderResult[0].maxOrder + 1);
+
+      // 해당 인덱스 이후의 카드들의 order_index를 1씩 증가
+      await connection.query(
+        "UPDATE card SET order_index = order_index + 1 WHERE board_id = ? AND order_index >= ?",
+        [boardId, orderIndex]
+      );
+    } else {
+      // 최대 order_index + 1로 설정
+      orderIndex = maxOrderResult[0].maxOrder + 1;
+    }
+
+    // 새 카드 저장 (지정된 위치에)
     const result = await connection.query(
       "INSERT INTO card (board_id, content, start_time, end_time, order_index, locked) VALUES (?, ?, ?, ?, ?, ?)",
-      [boardId, content, startTime, endTime, orderIndex, locked]
+      [boardId, content, startTime, endTime, orderIndex, isLocked]
     );
 
-    await connection.commit();
+    await connection.commit(); // 트랜잭션 커밋
 
-    res.status(201).json({
+    // 성공 응답
+    res.status(200).json({
       success: true,
       message: "카드가 성공적으로 생성되었습니다.",
       cardId: Number(result.insertId),
     });
+    return;
   } catch (err) {
-    await connection.rollback();
+    await connection.rollback(); // 트랜잭션 롤백
+
+    // 오류 로그 출력
     console.error("카드 생성 오류:", err);
     res.status(500).json({
       success: false,
       message: "카드를 생성하는 중 오류가 발생했습니다.",
     });
   } finally {
-    connection.release();
+    connection.release(); // DB 연결 해제
   }
 };
 
