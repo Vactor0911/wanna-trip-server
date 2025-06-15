@@ -44,8 +44,6 @@ export const searchPlaces = async (req: Request, res: Response): Promise<void> =
 // 장소별 이미지 검색 API
 export const searchPlaceImages = async (req: Request, res: Response): Promise<void> => {
   const { query } = req.query;
-
-  console.log('searchPlaceImages query:', query);
   
   if (!query) {
     res.status(400).json({
@@ -75,7 +73,7 @@ export const searchPlaceImages = async (req: Request, res: Response): Promise<vo
     
     res.status(200).json({
       success: true,
-      images: images.length > 0 ? images : [],
+      images: images,
       bestMatch: images.length > 0 ? {
         imageUrl: images[0].link,
         thumbnailUrl: images[0].thumbnail
