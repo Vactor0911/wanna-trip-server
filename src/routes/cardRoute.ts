@@ -6,6 +6,7 @@ import {
   deleteCard,
   updateCard,
   moveCard,
+  getLocationByCardId,
 } from "../controllers/cardController";
 
 const router = express.Router();
@@ -24,6 +25,9 @@ router.delete("/:cardId", limiter, authenticateToken, deleteCard);
 
 // 카드 이동
 router.post("/move", limiter, authenticateToken, moveCard);
+
+// 카드 ID로 위치 정보 조회
+router.get("/location/:cardId", limiter, authenticateToken, getLocationByCardId);
 
 // // 카드 조회
 // router.get("/:cardId", limiter, authenticateToken, getCard);
