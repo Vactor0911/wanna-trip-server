@@ -6,13 +6,17 @@ import {
   deleteBoard,
   duplicateBoard,
   createBoardAfter,
-  clearBoard
+  clearBoard,
+  moveBoard
 } from "../controllers/boardController";
 
 const boardRoute = express.Router();
 
 // CSRF 보호 미들웨어 적용
 boardRoute.use(csrfProtection);
+
+// 보드 이동
+boardRoute.post("/move", limiter, authenticateToken, moveBoard);
 
 // 새 보드 생성 (맨 뒤에 생성)
 boardRoute.post("/:templateUuid", limiter, authenticateToken, createBoard);

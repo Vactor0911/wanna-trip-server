@@ -329,3 +329,77 @@ export const duplicateBoard = async (req: Request, res: Response) => {
     connection.release();
   }
 };
+
+// 보드 이동 함수
+export const moveBoard = async (req: Request, res: Response) => {
+  const connection = await dbPool.getConnection(); // DB 연결 가져오기
+
+  try {
+    await connection.beginTransaction(); // 트랜잭션 시작
+
+    const userId = req.user.userId; // 요청한 사용자 ID
+    const { templateUuid, sourceDay, destinationDay } =
+      req.body; // 원본 보드의 인덱스, 대상 보드의 인덱스
+
+    // 보드 소유자 확인
+    const boards = await connection.query(
+      `SELECT b.* FROM board b
+      JOIN template t ON b.template_id = t.template_id
+      WHERE b.day_number IN (?, ?) AND t.user_id = ? AND t.template_uuid = ?`,
+      [sourceDay, destinationDay, userId, templateUuid]
+    );
+
+    // 보드 접근 권한 없음
+    if (boards.length !== 2) {
+      await connection.rollback();
+      res.status(404).json({
+        success: false,
+        message: "보드를 찾을 수 없거나 접근 권한이 없습니다.",
+      });
+      return;
+    }
+
+    // 이동할 보드 day_number를 -1로 설정
+    await connection.query(
+      "UPDATE board SET day_number = -1 WHERE template_uuid = ? AND day_number = ?",
+      [templateUuid, sourceDay]
+    );
+
+    // 보드 day_number 정렬
+    if (sourceDay > destinationDay) {
+      // 대상 보드 이후의 보드들의 day_number를 1씩 증가
+      await connection.query(
+        "UPDATE board SET day_number = day_number + 1 WHERE template_uuid = ? AND day_number >= ? AND day_number < ?",
+        [templateUuid, destinationDay, sourceDay]
+      );
+    } else {
+      // 대상 보드 이전의 보드들의 day_number를 1씩 감소
+      await connection.query(
+        "UPDATE board SET day_number = day_number - 1 WHERE template_uuid = ? AND day_number > ? AND day_number <= ?",
+        [templateUuid, sourceDay, destinationDay]
+      );
+    }
+
+    // 보드 day_number 업데이트
+    await connection.query(
+      "UPDATE board SET day_number = ? WHERE template_uuid = ? AND day_number < 0",
+      [destinationDay, templateUuid]
+    );
+
+    await connection.commit(); // 트랜잭션 커밋
+
+    res.status(200).json({
+      success: true,
+      message: "보드가 성공적으로 이동되었습니다.",
+    });
+  } catch (err) {
+    await connection.rollback();
+    console.error("보드 이동 오류:", err);
+    res.status(500).json({
+      success: false,
+      message: "보드를 이동하는 중 오류가 발생했습니다.",
+    });
+  } finally {
+    connection.release();
+  }
+};
