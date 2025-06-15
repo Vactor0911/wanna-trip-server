@@ -117,7 +117,13 @@ export const getTemplateByUuid = async (req: Request, res: Response) => {
 
     // 카드 조회 부분
     const cards = await dbPool.query(
-      `SELECT * FROM card WHERE board_id IN (?) ORDER BY board_id, order_index`,
+      `
+      SELECT c.*, l.title, l.thumbnail_url 
+      FROM card c 
+      LEFT JOIN location l ON c.card_id = l.card_id 
+      WHERE c.board_id IN (?) 
+      ORDER BY c.board_id, c.order_index
+      `,
       [boardIds]
     );
 
@@ -126,6 +132,19 @@ export const getTemplateByUuid = async (req: Request, res: Response) => {
       if (!acc[card.board_id]) {
         acc[card.board_id] = [];
       }
+
+      // 위치 정보가 있으면 location 객체 생성
+      if (card.location_title) {
+        card.location = {
+          title: card.location_title,
+          address: card.address,
+          latitude: card.latitude,
+          longitude: card.longitude,
+          category: card.category,
+          thumbnail_url: card.thumbnail_url,
+        };
+      }
+
       acc[card.board_id].push(card);
       return acc;
     }, {});
