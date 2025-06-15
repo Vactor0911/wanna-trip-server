@@ -83,58 +83,6 @@ export const createTemplate = async (req: Request, res: Response) => {
   }
 };
 
-// 특정 템플릿 상세 조회 (보드와 카드 포함)
-export const getTemplateDetail = async (req: Request, res: Response) => {
-  try {
-    const userId = req.user.userId;
-    const { templateId } = req.params;
-
-    // 템플릿 기본 정보 조회
-    const templates = await dbPool.query(
-      "SELECT * FROM template WHERE template_id = ? AND user_id = ?",
-      [templateId, userId]
-    );
-
-    if (templates.length === 0) {
-      res.status(404).json({
-        success: false,
-        message: "템플릿을 찾을 수 없거나 접근 권한이 없습니다.",
-      });
-      return;
-    }
-
-    const template = templates[0];
-
-    // 보드 정보 조회
-    const boards = await dbPool.query(
-      "SELECT * FROM board WHERE template_id = ? ORDER BY day_number",
-      [templateId]
-    );
-
-    // 각 보드의 카드 정보 조회
-    for (let board of boards) {
-      const cards = await dbPool.query(
-        "SELECT * FROM card WHERE board_id = ? ORDER BY start_time",
-        [board.board_id]
-      );
-      board.cards = cards;
-    }
-
-    template.boards = boards;
-
-    res.status(200).json({
-      success: true,
-      template,
-    });
-  } catch (err) {
-    console.error("템플릿 상세 조회 오류:", err);
-    res.status(500).json({
-      success: false,
-      message: "템플릿 정보를 불러오는 중 오류가 발생했습니다.",
-    });
-  }
-};
-
 // UUID로 템플릿 조회 (프론트에서 URL 접근 시 사용)
 export const getTemplateByUuid = async (req: Request, res: Response) => {
   try {

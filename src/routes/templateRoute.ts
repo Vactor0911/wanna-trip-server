@@ -3,7 +3,6 @@ import { authenticateToken } from "../middleware/authenticate";
 import {
   getUserTemplates,
   createTemplate,
-  getTemplateDetail,
   deleteTemplate,
   getTemplateByUuid,
   updateTemplateByUuid,
@@ -31,8 +30,6 @@ router.get("/uuid/:templateUuid", limiter, authenticateToken, getTemplateByUuid)
 router.put("/uuid/:templateUuid", limiter, authenticateToken, csrfProtection, updateTemplateByUuid);
 
 
-// // 템플릿 상세 조회 - 미연동
-// router.get("/:templateId", getTemplateDetail);
 
 
 
