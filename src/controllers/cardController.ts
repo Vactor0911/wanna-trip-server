@@ -94,7 +94,7 @@ export const updateCard = async (req: Request, res: Response) => {
     await connection.beginTransaction();
     const userId = req.user.userId;
     const { cardId } = req.params;
-    const { content, startTime, endTime, orderIndex, locked } = req.body;
+    const { content, startTime, endTime, orderIndex, locked, location } = req.body;
     const isOrderIndexSpecified = orderIndex !== undefined;
 
     // 카드 소유자 확인 및 기존 정보 조회
@@ -176,6 +176,50 @@ export const updateCard = async (req: Request, res: Response) => {
       );
     }
 
+    // 위치 정보가 있는 경우 처리
+    if (location) {
+      // 기존 위치 정보 확인
+      const locationResult = await connection.query(
+        "SELECT location_id FROM location WHERE card_id = ?",
+        [cardId]
+      );
+      
+      if (locationResult.length > 0) {
+        // 위치 정보 업데이트
+        await connection.query(
+          `UPDATE location SET 
+           title = ?, address = ?, latitude = ?, longitude = ?, 
+           category = ?, thumbnail_url = ? 
+           WHERE card_id = ?`,
+          [
+            location.title, 
+            location.address, 
+            location.latitude, 
+            location.longitude, 
+            location.category || "", 
+            location.thumbnail_url || "", 
+            cardId
+          ]
+        );
+      } else {
+        // 새로운 위치 정보 추가
+        await connection.query(
+          `INSERT INTO location 
+           (card_id, title, address, latitude, longitude, category, thumbnail_url) 
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [
+            cardId,
+            location.title,
+            location.address,
+            location.latitude,
+            location.longitude,
+            location.category || "",
+            location.thumbnail_url || ""
+          ]
+        );
+      }
+    }
+
     await connection.commit();
 
     res.status(200).json({
@@ -250,6 +294,7 @@ export const deleteCard = async (req: Request, res: Response) => {
   }
 };
 
+// 카드 이동
 export const moveCard = async (req: Request, res: Response) => {
   const connection = await dbPool.getConnection(); // DB 연결 가져오기
 
@@ -360,6 +405,60 @@ export const moveCard = async (req: Request, res: Response) => {
     });
   } finally {
     connection.release();
+  }
+};
+
+// 카드 ID로 위치 정보 조회
+export const getLocationByCardId = async (req: Request, res: Response) => {
+  try {
+    const { cardId } = req.params;
+    const userId = req.user.userId;
+
+    // 카드 소유자 확인 (보안 체크)
+    const cards = await dbPool.query(
+      `SELECT c.card_id FROM card c
+      JOIN board b ON c.board_id = b.board_id
+      JOIN template t ON b.template_id = t.template_id
+      WHERE c.card_id = ? AND t.user_id = ?`,
+      [cardId, userId]
+    );
+
+    if (cards.length === 0) {
+      res.status(404).json({
+        success: false,
+        message: "카드를 찾을 수 없거나 접근 권한이 없습니다.",
+      });
+      return;
+    }
+
+    // 위치 정보 조회
+    const locations = await dbPool.query(
+      `SELECT 
+        location_id, card_id, title, address, latitude, longitude,
+        category, thumbnail_url, duration, created_at, updated_at
+      FROM location WHERE card_id = ?`,
+      [cardId]
+    );
+
+    // 위치 정보가 없는 경우
+    if (locations.length === 0) {
+      res.status(404).json({
+        success: false,
+        message: "위치 정보를 찾을 수 없습니다.",
+      });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      location: locations[0], // 첫 번째 결과 반환
+    });
+  } catch (err) {
+    console.error("위치 정보 조회 오류:", err);
+    res.status(500).json({
+      success: false,
+      message: "위치 정보를 조회하는 중 오류가 발생했습니다.",
+    });
   }
 };
 
