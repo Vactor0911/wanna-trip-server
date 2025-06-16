@@ -293,10 +293,13 @@ export const duplicateBoard = async (req: Request, res: Response) => {
       [boardId]
     );
 
+    // 원본 카드 ID와 새 카드 ID 매핑을 저장할 객체
+    const cardIdMap = {};
+
     // 카드 복제 (순서대로 0부터 재할당)
     for (let i = 0; i < cards.length; i++) {
       const card = cards[i];
-      await connection.query(
+      const result = await connection.query(
         "INSERT INTO card (board_id, content, start_time, end_time, order_index, locked) VALUES (?, ?, ?, ?, ?, ?)",
         [
           newBoardId,
@@ -307,6 +310,37 @@ export const duplicateBoard = async (req: Request, res: Response) => {
           card.locked,
         ]
       );
+
+      // 원본 카드 ID와 새 카드 ID 매핑 저장
+      cardIdMap[card.card_id] = result.insertId;
+    }
+
+    // 위치 정보 복제
+    for (const originalCardId in cardIdMap) {
+      // 원본 카드의 위치 정보 조회
+      const locations = await connection.query(
+        "SELECT * FROM location WHERE card_id = ?",
+        [originalCardId]
+      );
+
+      // 위치 정보가 있으면 복제
+      if (locations.length > 0) {
+        const location = locations[0];
+        await connection.query(
+          `INSERT INTO location 
+          (card_id, title, address, latitude, longitude, category, thumbnail_url) 
+          VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [
+            cardIdMap[originalCardId], // 새 카드 ID
+            location.title,
+            location.address,
+            location.latitude,
+            location.longitude,
+            location.category,
+            location.thumbnail_url,
+          ]
+        );
+      }
     }
 
     // 트랜잭션 커밋
@@ -338,8 +372,7 @@ export const moveBoard = async (req: Request, res: Response) => {
     await connection.beginTransaction(); // 트랜잭션 시작
 
     const userId = req.user.userId; // 요청한 사용자 ID
-    const { templateUuid, sourceDay, destinationDay } =
-      req.body; // 원본 보드의 인덱스, 대상 보드의 인덱스
+    const { templateUuid, sourceDay, destinationDay } = req.body; // 원본 보드의 인덱스, 대상 보드의 인덱스
 
     // 보드 소유자 확인
     const boards = await connection.query(
