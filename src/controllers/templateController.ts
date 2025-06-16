@@ -118,7 +118,7 @@ export const getTemplateByUuid = async (req: Request, res: Response) => {
     // 카드 조회 부분
     const cards = await dbPool.query(
       `
-  SELECT c.*, l.title AS location_title, l.thumbnail_url AS location_thumbnail_url
+  SELECT c.*, l.title AS location_title, l.thumbnail_url AS location_thumbnail_url, l.latitude, l.longitude, l.address, l.category
   FROM card c 
   LEFT JOIN location l ON c.card_id = l.card_id 
   WHERE c.board_id IN (?) 
