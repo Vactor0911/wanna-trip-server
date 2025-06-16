@@ -94,7 +94,8 @@ export const updateCard = async (req: Request, res: Response) => {
     await connection.beginTransaction();
     const userId = req.user.userId;
     const { cardId } = req.params;
-    const { content, startTime, endTime, orderIndex, locked, location } = req.body;
+    const { content, startTime, endTime, orderIndex, locked, location } =
+      req.body;
     const isOrderIndexSpecified = orderIndex !== undefined;
 
     // 카드 소유자 확인 및 기존 정보 조회
@@ -183,7 +184,7 @@ export const updateCard = async (req: Request, res: Response) => {
         "SELECT location_id FROM location WHERE card_id = ?",
         [cardId]
       );
-      
+
       if (locationResult.length > 0) {
         // 위치 정보 업데이트
         await connection.query(
@@ -192,13 +193,13 @@ export const updateCard = async (req: Request, res: Response) => {
            category = ?, thumbnail_url = ? 
            WHERE card_id = ?`,
           [
-            location.title, 
-            location.address, 
-            location.latitude, 
-            location.longitude, 
-            location.category || "", 
-            location.thumbnail_url || "", 
-            cardId
+            location.title,
+            location.address,
+            location.latitude,
+            location.longitude,
+            location.category || "",
+            location.thumbnail_url || "",
+            cardId,
           ]
         );
       } else {
@@ -214,7 +215,7 @@ export const updateCard = async (req: Request, res: Response) => {
             location.latitude,
             location.longitude,
             location.category || "",
-            location.thumbnail_url || ""
+            location.thumbnail_url || "",
           ]
         );
       }
@@ -363,12 +364,12 @@ export const moveCard = async (req: Request, res: Response) => {
         [destinationBoardId, destinationOrderIndex]
       );
 
-      // 대상 보드에서 해당 위치에 카드 삽입
+      // 대상 보드에서 해당 위치에 카드 삽입하고 ID를 저장
       const result = await connection.query(
         `INSERT INTO card (board_id, content, start_time, end_time, order_index, locked)
-         SELECT ?, content, start_time, end_time, ?, locked
-         FROM card
-         WHERE board_id = ? AND order_index = ?`,
+        SELECT ?, content, start_time, end_time, ?, locked
+        FROM card
+        WHERE board_id = ? AND order_index = ?`,
         [
           destinationBoardId,
           destinationOrderIndex,
@@ -377,7 +378,34 @@ export const moveCard = async (req: Request, res: Response) => {
         ]
       );
 
-      // 원본 보드에서 해당 카드 삭제
+      const newCardId = result.insertId;
+
+      // 위치 정보가 있는지 확인하고 복사
+      const locationResults = await connection.query(
+        `SELECT * FROM location 
+        WHERE card_id = (SELECT card_id FROM card WHERE board_id = ? AND order_index = ?)`,
+        [sourceBoardId, sourceOrderIndex]
+      );
+
+      // 위치 정보가 있으면 복사
+      if (locationResults.length > 0) {
+        const locationData = locationResults[0];
+        await connection.query(
+          `INSERT INTO location (card_id, title, address, latitude, longitude, category, thumbnail_url)
+          VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [
+            newCardId,
+            locationData.title,
+            locationData.address,
+            locationData.latitude,
+            locationData.longitude,
+            locationData.category,
+            locationData.thumbnail_url,
+          ]
+        );
+      }
+
+      // 그 다음 원본 카드 삭제 (위치 정보는 FK constraint로 자동 삭제됨)
       await connection.query(
         "DELETE FROM card WHERE board_id = ? AND order_index = ?",
         [sourceBoardId, sourceOrderIndex]
