@@ -455,7 +455,7 @@ export const moveCard = async (req: Request, res: Response) => {
       await connection.commit();
 
       // 응답에 새 카드 ID 정보 추가
-      responseData.newCardId = newCardId;
+      responseData.newCardId = Number(newCardId);
       res.status(200).json(responseData);
     }
   } catch (err) {
