@@ -348,6 +348,16 @@ export const moveCard = async (req: Request, res: Response) => {
       return;
     }
 
+    // 응답 객체 초기화
+    const responseData: any = {
+      success: true,
+      message: "카드가 성공적으로 이동되었습니다.",
+      sourceBoardId,
+      destinationBoardId,
+      sourceOrderIndex,
+      destinationOrderIndex,
+    };
+
     // 같은 보드로 이동하는 경우
     if (sourceBoardId === destinationBoardId) {
       // 이동할 카드 order_index를 -1로 설정
@@ -376,8 +386,13 @@ export const moveCard = async (req: Request, res: Response) => {
         "UPDATE card SET order_index = ? WHERE board_id = ? AND order_index < 0",
         [destinationOrderIndex, sourceBoardId]
       );
-    } else {
-      // 다른 보드로 이동하는 경우
+
+      // 트랜잭션 커밋
+      await connection.commit();
+      res.status(200).json(responseData);
+    }
+    // 다른 보드로 이동하는 경우
+    else {
       // 대상 보드에서 해당 위치 이후의 카드들의 order_index를 1씩 증가
       await connection.query(
         "UPDATE card SET order_index = order_index + 1 WHERE board_id = ? AND order_index >= ?",
@@ -436,14 +451,13 @@ export const moveCard = async (req: Request, res: Response) => {
         "UPDATE card SET order_index = order_index - 1 WHERE board_id = ? AND order_index > ?",
         [sourceBoardId, sourceOrderIndex]
       );
+      // 트랜잭션 커밋
+      await connection.commit();
+
+      // 응답에 새 카드 ID 정보 추가
+      responseData.newCardId = newCardId;
+      res.status(200).json(responseData);
     }
-
-    await connection.commit(); // 트랜잭션 커밋
-
-    res.status(200).json({
-      success: true,
-      message: "카드가 성공적으로 이동되었습니다.",
-    });
   } catch (err) {
     await connection.rollback();
     console.error("카드 이동 오류:", err);
