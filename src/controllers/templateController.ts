@@ -89,10 +89,10 @@ export const getTemplateByUuid = async (req: Request, res: Response) => {
     const userId = req.user.userId;
     const { templateUuid } = req.params;
 
-    // 템플릿 기본 정보 조회
+    // "AND user_id = ?" 조건 제거 - 다른 사용자의 템플릿도 조회 가능하게
     const templates = await dbPool.query(
-      "SELECT * FROM template WHERE template_uuid = ? AND user_id = ?",
-      [templateUuid, userId]
+      "SELECT * FROM template WHERE template_uuid = ?",
+      [templateUuid]
     );
 
     if (templates.length === 0) {
@@ -104,6 +104,9 @@ export const getTemplateByUuid = async (req: Request, res: Response) => {
     }
 
     const template = templates[0];
+
+    // 템플릿에 소유자 여부 정보 추가
+    template.isOwner = template.user_id === userId;
 
     // 보드 정보 조회
     const boards = await dbPool.query(
@@ -162,6 +165,7 @@ export const getTemplateByUuid = async (req: Request, res: Response) => {
     res.status(200).json({
       success: true,
       template,
+      isOwner: template.user_id === userId // 소유자 여부 정보 추가
     });
   } catch (err) {
     console.error("UUID 템플릿 조회 오류:", err);
@@ -312,5 +316,39 @@ export const mergeTemplates = async (
     return false;
   } finally {
     connection.release();
+  }
+};
+
+
+// 인기 템플릿 조회 (공유 수 기준 상위 3개)
+export const getPopularTemplates = async (req: Request, res: Response) => {
+  try {
+    // 공유 수 기준으로 상위 3개 템플릿 조회
+    const templates = await dbPool.query(
+      `SELECT t.template_id, t.template_uuid, t.title, t.shared_count, u.name AS username 
+       FROM template t
+       JOIN user u ON t.user_id = u.user_id
+       ORDER BY t.shared_count DESC 
+       LIMIT 3`
+    );
+
+    // 프론트엔드에서 필요한 형식으로 변환
+    const formattedTemplates = templates.map(template => ({
+      uuid: template.template_uuid,
+      title: template.title,
+      username: template.username,
+      shared_count: template.shared_count
+    }));
+
+    res.status(200).json({
+      success: true,
+      templates: formattedTemplates
+    });
+  } catch (err) {
+    console.error("인기 템플릿 조회 오류:", err);
+    res.status(500).json({
+      success: false,
+      message: "인기 템플릿을 불러오는 중 오류가 발생했습니다."
+    });
   }
 };
