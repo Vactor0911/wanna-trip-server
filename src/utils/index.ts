@@ -1,5 +1,8 @@
 import rateLimit from "express-rate-limit"; // 요청 제한 미들웨어
-import { csrfProtection as csrfProtectionUtil, csrfTokenMiddleware } from './csrfUtil';
+import {
+  csrfProtection as csrfProtectionUtil,
+  csrfTokenMiddleware,
+} from "./csrfUtil";
 
 // 일반 API용 Rate Limiter
 export const limiter = rateLimit({
@@ -39,3 +42,14 @@ export const refreshTokenLimiter = rateLimit({
 // CSRF 미들웨어 내보내기
 export const csrfProtection = csrfProtectionUtil;
 export { csrfTokenMiddleware };
+
+/**
+ * 숫자를 지정된 범위로 제한하는 함수
+ * @param value 제한할 값
+ * @param min 최소값
+ * @param max 최대값
+ * @returns 제한된 값
+ */
+export const clamp = (value: number, min: number, max: number): number => {
+  return Math.max(min, Math.min(max, value));
+};

@@ -3,10 +3,10 @@ import { authenticateToken } from "../middleware/authenticate";
 import {
   getUserTemplates,
   createTemplate,
-  getTemplateDetail,
   deleteTemplate,
   getTemplateByUuid,
   updateTemplateByUuid,
+  getPopularTemplates,
 } from "../controllers/templateController";
 import { csrfProtection, limiter } from "../utils";
 
@@ -30,9 +30,9 @@ router.get("/uuid/:templateUuid", limiter, authenticateToken, getTemplateByUuid)
 // UUID로 템플릿 수정 (제목 변경) - 새로 추가된 엔드포인트
 router.put("/uuid/:templateUuid", limiter, authenticateToken, csrfProtection, updateTemplateByUuid);
 
+// 인기 템플릿 조회 - 로그인 필요 없음 (공개 API)
+router.get("/popular", limiter, csrfProtection, getPopularTemplates);
 
-// // 템플릿 상세 조회 - 미연동
-// router.get("/:templateId", getTemplateDetail);
 
 
 

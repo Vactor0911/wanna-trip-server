@@ -11,6 +11,7 @@ import cardRoute from "./routes/cardRoute";
 import helmet from 'helmet'; // 보안 관련 HTTP 헤더 설정을 위한 미들웨어
 import { csrfTokenMiddleware } from "./utils";
 import path from 'path';
+import searchRoute from "./routes/searchRoute";
 
 // .env 파일 로드
 dotenv.config();
@@ -99,5 +100,8 @@ app.use("/board", boardRoute); // 보드 관련 라우트
 
 // 카드 관련
 app.use("/card", cardRoute); // 카드 관련 라우트
+
+// 네이버 지도 검색 관련
+app.use("/naver-map", searchRoute); // 네이버 지도 검색 라우트
 
 // *** 라우트 정의 끝 ***
