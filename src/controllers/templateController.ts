@@ -105,9 +105,6 @@ export const getTemplateByUuid = async (req: Request, res: Response) => {
 
     const template = templates[0];
 
-    // 템플릿에 소유자 여부 정보 추가
-    template.isOwner = template.user_id === userId;
-
     // 보드 정보 조회
     const boards = await dbPool.query(
       "SELECT * FROM board WHERE template_id = ? ORDER BY day_number",
