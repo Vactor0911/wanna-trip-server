@@ -31,7 +31,7 @@ router.get("/uuid/:templateUuid", limiter, authenticateToken, getTemplateByUuid)
 router.put("/uuid/:templateUuid", limiter, authenticateToken, csrfProtection, updateTemplateByUuid);
 
 // 인기 템플릿 조회 - 로그인 필요 없음 (공개 API)
-router.get("/popular", limiter, csrfProtection, getPopularTemplates);
+router.get("/popular", limiter, getPopularTemplates);
 
 
 
