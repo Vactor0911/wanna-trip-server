@@ -351,7 +351,7 @@ export const getPopularTemplates = async (req: Request, res: Response) => {
 };
 
 
-// 템플릿 내 모든 보드의 카드 정렬 (잠금 상태가 아닌 카드만)
+// 템플릿 내 모든 보드의 카드 정렬
 export const sortTemplateCards = async (req: Request, res: Response) => {
   const connection = await dbPool.getConnection(); // 커넥션 획득
 
@@ -400,20 +400,20 @@ export const sortTemplateCards = async (req: Request, res: Response) => {
     for (const board of boards) {
       const boardId = board.board_id;
       
-      // 해당 보드의 모든 카드 가져오기 (잠금 해제 상태인 카드만)
+      // 해당 보드의 모든 카드 가져오기
       let cards;
       if (sortBy === 'start_time') {
         cards = await connection.query(
-          "SELECT card_id, start_time FROM card WHERE board_id = ? AND locked = 0 ORDER BY start_time",
+          "SELECT card_id, start_time FROM card WHERE board_id = ? ORDER BY start_time",
           [boardId]
         );
       } else if (sortBy === 'end_time') {
         cards = await connection.query(
-          "SELECT card_id, end_time FROM card WHERE board_id = ? AND locked = 0 ORDER BY end_time",
+          "SELECT card_id, end_time FROM card WHERE board_id = ? ORDER BY end_time",
           [boardId]
         );
       } 
-      
+
       // 카드 순서 업데이트
       for (let i = 0; i < cards.length; i++) {
         await connection.query(
