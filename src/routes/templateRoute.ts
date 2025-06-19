@@ -7,6 +7,7 @@ import {
   getTemplateByUuid,
   updateTemplateByUuid,
   getPopularTemplates,
+  sortTemplateCards,
 } from "../controllers/templateController";
 import { csrfProtection, limiter } from "../utils";
 
@@ -33,9 +34,8 @@ router.put("/uuid/:templateUuid", limiter, authenticateToken, csrfProtection, up
 // 인기 템플릿 조회 - 로그인 필요 없음 (공개 API)
 router.get("/popular", limiter, getPopularTemplates);
 
-
-
-
+// 템플릿 내 모든 보드의 카드 정렬하기
+router.post("/uuid/:templateUuid/sort", limiter, authenticateToken, csrfProtection, sortTemplateCards);
 
 
 

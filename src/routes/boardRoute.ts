@@ -7,7 +7,8 @@ import {
   duplicateBoard,
   createBoardAfter,
   clearBoard,
-  moveBoard
+  moveBoard,
+  sortBoardCards,
 } from "../controllers/boardController";
 
 const boardRoute = express.Router();
@@ -32,5 +33,9 @@ boardRoute.delete("/:boardId/cards", limiter, authenticateToken, clearBoard);
 
 // 보드 복제 (특정 보드 바로 뒤에 복제)
 boardRoute.post("/duplicate/:boardId", limiter, authenticateToken, duplicateBoard);
+
+// 보드 내 카드 정렬
+boardRoute.post("/:boardId/sort", limiter, authenticateToken, csrfProtection, sortBoardCards);
+
 
 export default boardRoute;

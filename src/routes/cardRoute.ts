@@ -29,14 +29,5 @@ router.post("/move", limiter, authenticateToken, moveCard);
 // 카드 ID로 위치 정보 조회
 router.get("/location/:cardId", limiter, authenticateToken, getLocationByCardId);
 
-// // 카드 조회
-// router.get("/:cardId", limiter, authenticateToken, getCard);
-
-// // 카드 순서 변경
-// router.put("/reorder/:boardId", limiter, authenticateToken, reorderCards);
-
-// // 카드 검색
-// router.get("/search/:templateId", limiter, authenticateToken, searchCards);
-
 
 export default router;
