@@ -349,3 +349,94 @@ export const getPopularTemplates = async (req: Request, res: Response) => {
     });
   }
 };
+
+
+// 템플릿 내 모든 보드의 카드 정렬 (잠금 상태가 아닌 카드만)
+export const sortTemplateCards = async (req: Request, res: Response) => {
+  const connection = await dbPool.getConnection(); // 커넥션 획득
+
+  try {
+    await connection.beginTransaction(); // 트랜잭션 시작
+
+    const userId = req.user.userId;
+    const { templateUuid } = req.params;
+    const { sortBy } = req.body; // 정렬 기준 (start_time, end_time)
+
+    // 정렬 기준 검증
+    const validSortOptions = ['start_time', 'end_time'];
+    if (!validSortOptions.includes(sortBy)) {
+      await connection.rollback();
+      res.status(400).json({
+        success: false,
+        message: "유효하지 않은 정렬 기준입니다. 'start_time', 'end_time' 중 하나를 사용하세요.",
+      });
+      return;
+    }
+
+    // 템플릿 소유자 확인 및 template_id 조회
+    const templates = await connection.query(
+      "SELECT template_id FROM template WHERE template_uuid = ? AND user_id = ?",
+      [templateUuid, userId]
+    );
+
+    if (templates.length === 0) {
+      await connection.rollback();
+      res.status(404).json({
+        success: false,
+        message: "템플릿을 찾을 수 없거나 접근 권한이 없습니다.",
+      });
+      return;
+    }
+
+    const templateId = templates[0].template_id;
+
+    // 해당 템플릿의 모든 보드 가져오기
+    const boards = await connection.query(
+      "SELECT board_id FROM board WHERE template_id = ? ORDER BY day_number",
+      [templateId]
+    );
+
+    // 각 보드별로 카드 정렬
+    for (const board of boards) {
+      const boardId = board.board_id;
+      
+      // 해당 보드의 모든 카드 가져오기 (잠금 해제 상태인 카드만)
+      let cards;
+      if (sortBy === 'start_time') {
+        cards = await connection.query(
+          "SELECT card_id, start_time FROM card WHERE board_id = ? AND locked = 0 ORDER BY start_time",
+          [boardId]
+        );
+      } else if (sortBy === 'end_time') {
+        cards = await connection.query(
+          "SELECT card_id, end_time FROM card WHERE board_id = ? AND locked = 0 ORDER BY end_time",
+          [boardId]
+        );
+      } 
+      
+      // 카드 순서 업데이트
+      for (let i = 0; i < cards.length; i++) {
+        await connection.query(
+          "UPDATE card SET order_index = ? WHERE card_id = ?",
+          [i, cards[i].card_id]
+        );
+      }
+    }
+
+    await connection.commit(); // 트랜잭션 커밋
+
+    res.status(200).json({
+      success: true,
+      message: "카드가 성공적으로 정렬되었습니다.",
+    });
+  } catch (err) {
+    await connection.rollback(); // 오류 시 롤백
+    console.error("카드 정렬 오류:", err);
+    res.status(500).json({
+      success: false,
+      message: "카드를 정렬하는 중 오류가 발생했습니다.",
+    });
+  } finally {
+    connection.release(); // 커넥션 반환
+  }
+};
