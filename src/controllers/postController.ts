@@ -157,7 +157,7 @@ export const getPopularPosts = async (req: Request, res: Response) => {
     // 검색 결과 반환
     res.status(200).json({
       success: true,
-      data: response,
+      post: response,
     });
   } catch (err) {
     console.error("인기 게시글 조회 오류:", err);
@@ -207,6 +207,7 @@ export const getPostByUuid = async (req: Request, res: Response) => {
         templateUuid: post.template_uuid,
         title: post.title,
         content: post.content,
+        tags: post.tag ? post.tag.split(",") : [],
         authorUuid: post.user_uuid,
         authorName: post.author_name,
         authorProfile: post.author_profile,
