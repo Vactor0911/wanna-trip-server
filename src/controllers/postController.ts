@@ -74,7 +74,7 @@ export const getPostsByPage = async (req: Request, res: Response) => {
     // 검색 결과 반환
     res.status(200).json({
       success: true,
-      data: response,
+      post: response,
     });
   } catch (err) {
     console.error("게시글 목록 조회 오류:", err);
