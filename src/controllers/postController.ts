@@ -14,12 +14,13 @@ export const getPostByUuid = async (req: Request, res: Response) => {
         p.*, 
         u.name AS author_name, 
         u.profile_image AS author_profile,
-        (SELECT COUNT(*) FROM likes WHERE target_type = 'post' AND target_uuid = p.post_uuid) AS likes_count
+        (SELECT COUNT(*) FROM likes WHERE target_type = 'post' AND target_uuid = p.post_uuid COLLATE utf8mb4_unicode_ci) AS likes_count,
+        (SELECT EXISTS(SELECT 1 FROM likes WHERE target_type = 'post' AND target_uuid = p.post_uuid COLLATE utf8mb4_unicode_ci AND user_uuid = ? COLLATE utf8mb4_unicode_ci)) AS user_liked
       FROM post p
-      LEFT JOIN user u ON p.user_uuid = u.user_uuid
+      LEFT JOIN user u ON p.user_uuid COLLATE utf8mb4_unicode_ci = u.user_uuid
       WHERE p.post_uuid = ?
       `,
-      [postUuid]
+      [req.user?.userUuid || null, postUuid] // 로그인한 사용자가 좋아요했는지 확인
     );
 
     if (posts.length === 0) {
@@ -35,7 +36,7 @@ export const getPostByUuid = async (req: Request, res: Response) => {
     res.status(200).json({
       success: true,
       post: {
-        id: post.post_id,
+        id: Number(post.post_id),
         uuid: post.post_uuid,
         templateUuid: post.template_uuid,
         title: post.title,
@@ -44,9 +45,10 @@ export const getPostByUuid = async (req: Request, res: Response) => {
         authorName: post.author_name,
         authorProfile: post.author_profile,
         createdAt: post.created_at,
-        likes: post.likes_count || 0,
-        shares: post.shares || 0,
-        views: post.views || 0,
+        likes: Number(post.likes_count || 0),
+        liked: req.user ? !!post.user_liked : false, // 명시적으로 로그인 유무 확인
+        shares: Number(post.shares || 0),
+        views: Number(post.views || 0),
       },
     });
   } catch (err) {
@@ -169,36 +171,42 @@ export const getCommentsByPostUuid = async (req: Request, res: Response) => {
       return;
     }
 
-    // 댓글 조회 (사용자 정보 포함)
     const comments = await dbPool.query(
       `
       SELECT 
         c.*,
         u.name AS author_name, 
         u.profile_image AS author_profile,
-        (SELECT COUNT(*) FROM likes WHERE target_type = 'comment' AND target_uuid = c.comment_uuid) AS likes_count,
-        (SELECT EXISTS(SELECT 1 FROM likes WHERE target_type = 'comment' AND target_uuid = c.comment_uuid AND user_uuid = ?)) AS user_liked
+        (SELECT COUNT(*) FROM likes WHERE target_type = 'comment' AND target_uuid = c.comment_uuid COLLATE utf8mb4_unicode_ci) AS likes_count,
+        IF(? IS NOT NULL, 
+          (SELECT EXISTS(SELECT 1 FROM likes 
+          WHERE target_type = 'comment' 
+          AND target_uuid = c.comment_uuid COLLATE utf8mb4_unicode_ci 
+          AND user_uuid = ? COLLATE utf8mb4_unicode_ci)), 
+          0) AS user_liked
       FROM post_comment c
       LEFT JOIN user u ON c.user_uuid = u.user_uuid
       WHERE c.post_uuid = ?
       ORDER BY c.created_at ASC
       `,
-      [req.user?.userUuid || null, postUuid] // 로그인한 사용자가 좋아요했는지 확인
+      [req.user?.userUuid || null, req.user?.userUuid || null, postUuid] // 파라미터 두 번 전달
     );
 
-    // 응답용 댓글 데이터 가공
-    const formattedComments = comments.map((comment: any) => ({
-      id: comment.comment_id,
-      uuid: comment.comment_uuid,
-      content: comment.content,
-      authorUuid: comment.user_uuid,
-      authorName: comment.author_name,
-      authorProfile: comment.author_profile,
-      parentUuid: comment.parent_comment_uuid,
-      createdAt: comment.created_at,
-      likes: comment.likes_count || 0,
-      liked: !!comment.user_liked,
-    }));
+    // 응답용 댓글 데이터 가공 부분도 업데이트
+    const formattedComments = comments.map((comment: any) => {
+      return {
+        id: Number(comment.comment_id),
+        uuid: comment.comment_uuid,
+        content: comment.content,
+        authorUuid: comment.user_uuid,
+        authorName: comment.author_name,
+        authorProfile: comment.author_profile,
+        parentUuid: comment.parent_comment_uuid,
+        createdAt: comment.created_at,
+        likes: Number(comment.likes_count || 0),
+        liked: req.user ? comment.user_liked === 1 : false, // 명시적으로 로그인 유무 확인
+      };
+    });
 
     res.status(200).json({
       success: true,
