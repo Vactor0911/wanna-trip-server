@@ -9,6 +9,7 @@ import {
   createComment,
   deleteComment,
   deletePost,
+  editPost,
   getCommentsByPostUuid,
   getPopularPosts,
   getPostByUuid,
@@ -27,7 +28,17 @@ postRoute.get("/popular", limiter, optionalAuthenticate, getPopularPosts);
 // UUID로 게시글 조회 (로그인 없이도 조회 가능)
 postRoute.get("/:postUuid", limiter, optionalAuthenticate, getPostByUuid);
 
+// 게시글 작성
 postRoute.post("/add", limiter, authenticateToken, csrfProtection, addPost);
+
+// 게시글 수정
+postRoute.put(
+  "/:postUuid",
+  limiter,
+  authenticateToken,
+  csrfProtection,
+  editPost
+);
 
 // 게시글 삭제
 postRoute.delete(

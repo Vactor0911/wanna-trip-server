@@ -309,6 +309,95 @@ export const addPost = async (req: Request, res: Response) => {
   }
 };
 
+// 게시글 수정
+export const editPost = async (req: Request, res: Response) => {
+  try {
+    const { postUuid } = req.params;
+    const userUuid = req.user?.userUuid;
+    const { title, content, tags, templateUuid } = req.body;
+
+    if (!userUuid) {
+      res.status(401).json({
+        success: false,
+        message: "로그인이 필요합니다.",
+      });
+      return;
+    }
+
+    // 게시글 존재 여부 확인
+    const posts = await dbPool.query(
+      `SELECT user_uuid FROM post WHERE post_uuid = ?`,
+      [postUuid]
+    );
+
+    // 게시글이 존재하지 않는 경우
+    if (posts.length === 0) {
+      res.status(404).json({
+        success: false,
+        message: "게시글을 찾을 수 없습니다.",
+      });
+      return;
+    }
+
+    // 게시글 정보 가져오기
+    const post = posts[0];
+
+    // 작성자가 맞는지 확인
+    if (post.user_uuid !== userUuid) {
+      res.status(403).json({
+        success: false,
+        message: "이 게시글을 수정할 권한이 없습니다.",
+      });
+      return;
+    }
+
+    // 트랜잭션 시작
+    const connection = await dbPool.getConnection();
+    await connection.beginTransaction();
+
+    try {
+      // 게시글 수정
+      await connection.query(
+        `
+        UPDATE post 
+        SET title = ?, content = ?, tag = ?, template_uuid = ?
+        WHERE post_uuid = ?
+        `,
+        [title, content, tags ? tags.join(",") : null, templateUuid, postUuid]
+      );
+
+      // 트랜잭션 커밋
+      await connection.commit();
+
+      res.status(200).json({
+        success: true,
+        message: "게시글이 성공적으로 수정되었습니다.",
+        post: {
+          uuid: postUuid,
+          title,
+          content,
+          authorUuid: userUuid,
+          tags: tags || [],
+          templateUuid,
+        },
+      });
+    } catch (error) {
+      // 오류 발생 시 롤백
+      await connection.rollback();
+      console.error("게시글 수정 중 오류 발생:", error);
+    } finally {
+      // 연결 해제
+      connection.release();
+    }
+  } catch (err) {
+    console.error("게시글 수정 오류:", err);
+    res.status(500).json({
+      success: false,
+      message: "게시글 수정 중 오류가 발생했습니다.",
+    });
+  }
+};
+
 // 게시글 삭제
 export const deletePost = async (req: Request, res: Response) => {
   try {
