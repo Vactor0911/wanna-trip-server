@@ -5,6 +5,7 @@ import {
   optionalAuthenticate,
 } from "../middleware/authenticate";
 import {
+  addPost,
   createComment,
   deleteComment,
   deletePost,
@@ -25,6 +26,8 @@ postRoute.get("/popular", limiter, optionalAuthenticate, getPopularPosts);
 
 // UUID로 게시글 조회 (로그인 없이도 조회 가능)
 postRoute.get("/:postUuid", limiter, optionalAuthenticate, getPostByUuid);
+
+postRoute.post("/add", limiter, authenticateToken, csrfProtection, addPost);
 
 // 게시글 삭제
 postRoute.delete(

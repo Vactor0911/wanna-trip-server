@@ -132,8 +132,6 @@ export const getPopularPosts = async (req: Request, res: Response) => {
       [req.user?.userUuid, RESULT_LENGTH]
     );
 
-    console.log("인기 게시글 목록 조회:", posts);
-
     // 인기 게시글이 없는 경우
     if (posts.length === 0) {
       res.status(404).json({
@@ -224,6 +222,88 @@ export const getPostByUuid = async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       message: "게시글 정보를 불러오는 중 오류가 발생했습니다.",
+    });
+  }
+};
+
+// 게시글 작성
+export const addPost = async (req: Request, res: Response) => {
+  try {
+    const userUuid = req.user?.userUuid;
+    const { title, content, tags, templateUuid } = req.body;
+
+    // 사용자 인증 실패
+    if (!userUuid) {
+      res.status(401).json({
+        success: false,
+        message: "로그인이 필요합니다.",
+      });
+      return;
+    }
+
+    // 필수 정보 누락
+    if (!title || !content) {
+      res.status(400).json({
+        success: false,
+        message: "제목과 내용을 입력해주세요.",
+      });
+      return;
+    }
+
+    // 트랜잭션 시작
+    const connection = await dbPool.getConnection();
+    await connection.beginTransaction();
+
+    try {
+      // 게시글 작성
+      const response = await connection.query(
+        `
+        INSERT INTO post (user_uuid, title, content, tag, template_uuid)
+        VALUES (?, ?, ?, ?, ?)
+        `,
+        [userUuid, title, content, tags ? tags.join(",") : null, templateUuid]
+      );
+
+      // 작성된 게시글 UUID 조회
+      const postUuid = await connection.query(
+        `SELECT post_uuid FROM post WHERE post_id = ?`,
+        [response.insertId]
+      );
+
+      // 게시글 UUID가 없으면 오류 처리
+      if (!postUuid.length || !postUuid[0].post_uuid) {
+        res.status(500).json({
+          success: false,
+          message: "게시글 작성에 실패했습니다.",
+        });
+        throw new Error("게시글 작성 실패");
+      }
+
+      // 트랜잭션 커밋
+      await connection.commit();
+
+      // 작성 결과 반환
+      res.status(201).json({
+        success: true,
+        message: "게시글이 성공적으로 작성되었습니다.",
+        post: {
+          uuid: postUuid[0].post_uuid,
+          title,
+          content,
+          authorUuid: userUuid,
+          tags: tags || [],
+          templateUuid,
+        },
+      });
+    } catch (error) {
+      // 오류 발생 시 롤백
+      await connection.rollback();
+    }
+  } catch (err) {
+    console.error("게시글 작성 오류:", err);
+    res.status(500).json({
+      success: false,
+      message: "게시글 작성 중 오류가 발생했습니다.",
     });
   }
 };
