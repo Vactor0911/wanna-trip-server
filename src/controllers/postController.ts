@@ -2,6 +2,174 @@ import { Request, Response } from "express";
 import { dbPool } from "../config/db";
 import { v4 as uuidv4 } from "uuid";
 
+// 페이지로 게시글 목록 조회
+export const getPostsByPage = async (req: Request, res: Response) => {
+  const POSTS_PER_PAGE = 10; // 페이지당 게시글 수
+
+  try {
+    const { page } = req.params; // 페이지 번호
+
+    // 페이지 오프셋 계산
+    const pageNumber = parseInt(page, 10);
+    const pageOffset = (pageNumber - 1) * POSTS_PER_PAGE;
+
+    // post 테이블에서 페이지에 맞는 게시글들 가져오기
+    const posts = await dbPool.query(
+      `
+      SELECT 
+        p.post_uuid, p.title, p.tag, p.shares,
+        COALESCE(l.like_count, 0) AS like_count,
+        COALESCE(l2.liked, 0) AS liked,
+        COALESCE(c.comments, 0) AS comments
+      FROM post AS p
+
+      /* 좋아요 수 */
+      LEFT JOIN (
+        SELECT target_uuid, COUNT(*) AS like_count
+        FROM likes
+        WHERE target_type = 'post'
+        GROUP BY target_uuid
+      ) AS l ON p.post_uuid COLLATE utf8mb4_unicode_ci = l.target_uuid COLLATE utf8mb4_unicode_ci
+
+      /* 좋아요 여부 */
+      LEFT JOIN (
+        SELECT target_uuid, user_uuid, 1 AS liked
+        FROM likes
+        WHERE target_type = 'post'
+      ) AS l2 ON l2.target_uuid COLLATE utf8mb4_unicode_ci = p.post_uuid AND l2.user_uuid = ? COLLATE utf8mb4_unicode_ci
+
+      /* 댓글 수 */
+      LEFT JOIN (
+        SELECT post_uuid, COUNT(*) AS comments
+        FROM post_comment
+      ) AS c ON c.post_uuid COLLATE utf8mb4_unicode_ci = p.post_uuid COLLATE utf8mb4_unicode_ci
+
+      ORDER BY p.created_at DESC
+      LIMIT ?
+      OFFSET ?;
+      `,
+      [req.user?.userUuid, POSTS_PER_PAGE, pageOffset]
+    );
+
+    // 게시글 없음
+    if (posts.length === 0) {
+      res.status(404).json({
+        success: false,
+        message: "게시글을 찾을 수 없습니다.",
+      });
+      return;
+    }
+
+    // 응답 데이터 가공
+    const response = posts.map((post: any) => ({
+      uuid: post.post_uuid,
+      title: post.title,
+      tags: post.tag ? post.tag.split(",") : [],
+      liked: req.user ? !!post.liked : false,
+      likes: Number(post.like_count || 0),
+      shares: Number(post.shares || 0),
+      comments: Number(post.comments || 0),
+    }));
+
+    // 검색 결과 반환
+    res.status(200).json({
+      success: true,
+      data: response,
+    });
+  } catch (err) {
+    console.error("게시글 목록 조회 오류:", err);
+    res.status(500).json({
+      success: false,
+      message: "게시글 목록을 불러오는 중 오류가 발생했습니다.",
+    });
+  }
+};
+
+// 인기 게시글 목록 조회
+export const getPopularPosts = async (req: Request, res: Response) => {
+  const RESULT_LENGTH = 10; // 조회할 인기 게시글 수
+  try {
+    // 좋아요 수가 많은 게시글 조회
+    const posts = await dbPool.query(
+      `
+      SELECT 
+        p.post_uuid, p.title, p.content, p.shares,
+        u.name AS author_name, 
+        u.profile_image AS author_profile_image,
+        COALESCE(l.like_count, 0) AS like_count,
+        COALESCE(l2.liked, 0) AS liked,
+        COALESCE(c.comments, 0) AS comments
+      FROM post AS p
+
+      /* 작성자 */
+      LEFT JOIN user AS u
+        ON p.user_uuid COLLATE utf8mb4_unicode_ci = u.user_uuid COLLATE utf8mb4_unicode_ci
+
+      /* 좋아요 수 */
+      LEFT JOIN (
+        SELECT target_uuid, COUNT(*) AS like_count
+        FROM likes
+        WHERE target_type = 'post'
+        GROUP BY target_uuid
+      ) AS l ON p.post_uuid COLLATE utf8mb4_unicode_ci = l.target_uuid COLLATE utf8mb4_unicode_ci
+
+      /* 좋아요 여부 */
+      LEFT JOIN (
+        SELECT target_uuid, user_uuid, 1 AS liked
+        FROM likes
+        WHERE target_type = 'post'
+      ) AS l2 ON l2.target_uuid COLLATE utf8mb4_unicode_ci = p.post_uuid AND l2.user_uuid = ? COLLATE utf8mb4_unicode_ci
+
+      /* 댓글 수 */
+      LEFT JOIN (
+        SELECT post_uuid, COUNT(*) AS comments
+        FROM post_comment
+      ) AS c ON c.post_uuid COLLATE utf8mb4_unicode_ci = p.post_uuid COLLATE utf8mb4_unicode_ci
+
+      ORDER BY like_count DESC
+      LIMIT ?;
+      `,
+      [req.user?.userUuid, RESULT_LENGTH]
+    );
+
+    console.log("인기 게시글 목록 조회:", posts);
+
+    // 인기 게시글이 없는 경우
+    if (posts.length === 0) {
+      res.status(404).json({
+        success: false,
+        message: "인기 게시글을 찾을 수 없습니다.",
+      });
+      return;
+    }
+
+    // 응답 데이터 가공
+    const response = posts.map((post: any) => ({
+      uuid: post.post_uuid,
+      title: post.title,
+      authorName: post.author_name,
+      authorProfileImage: post.author_profile_image,
+      content: post.content,
+      liked: req.user ? !!post.liked : false,
+      likes: Number(post.like_count || 0),
+      shares: Number(post.shares || 0),
+      comments: Number(post.comments || 0),
+    }));
+
+    // 검색 결과 반환
+    res.status(200).json({
+      success: true,
+      data: response,
+    });
+  } catch (err) {
+    console.error("인기 게시글 조회 오류:", err);
+    res.status(500).json({
+      success: false,
+      message: "인기 게시글을 불러오는 중 오류가 발생했습니다.",
+    });
+  }
+};
+
 // UUID로 게시글 조회
 export const getPostByUuid = async (req: Request, res: Response) => {
   try {

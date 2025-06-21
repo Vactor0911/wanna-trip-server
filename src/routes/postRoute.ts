@@ -9,11 +9,19 @@ import {
   deleteComment,
   deletePost,
   getCommentsByPostUuid,
+  getPopularPosts,
   getPostByUuid,
+  getPostsByPage,
   toggleLike,
 } from "../controllers/postController";
 
 const postRoute = express.Router();
+
+// 페이지로 게시글 목록 조회
+postRoute.get("/page/:page", limiter, optionalAuthenticate, getPostsByPage);
+
+// 인기 게시글 목록 조회
+postRoute.get("/popular", limiter, optionalAuthenticate, getPopularPosts);
 
 // UUID로 게시글 조회 (로그인 없이도 조회 가능)
 postRoute.get("/:postUuid", limiter, optionalAuthenticate, getPostByUuid);
