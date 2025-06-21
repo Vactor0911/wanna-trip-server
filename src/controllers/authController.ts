@@ -1108,7 +1108,7 @@ export const getUserInfo = async (req: Request, res: Response) => {
 
     // DB에서 사용자 정보 조회
     const rows = await dbPool.query(
-      "SELECT user_id, email, name, profile_image FROM user WHERE user_id = ? AND state = 'active'",
+      "SELECT user_id, email, name, profile_image, user_uuid FROM user WHERE user_id = ? AND state = 'active'",
       [user.userId]
     );
 
@@ -1129,6 +1129,7 @@ export const getUserInfo = async (req: Request, res: Response) => {
         email: userInfo.email,
         nickname: userInfo.name,
         profileImage: userInfo.profile_image || null,
+        userUuid: userInfo.user_uuid,
       },
     });
   } catch (err) {
