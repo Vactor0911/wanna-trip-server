@@ -10,7 +10,11 @@ export const getPostByUuid = async (req: Request, res: Response) => {
     // post 테이블에서 해당 UUID의 게시글 정보 가져오기
     const posts = await dbPool.query(
       `
-      SELECT p.*, u.name AS author_name, u.profile_image AS author_profile 
+      SELECT 
+        p.*, 
+        u.name AS author_name, 
+        u.profile_image AS author_profile,
+        (SELECT COUNT(*) FROM likes WHERE target_type = 'post' AND target_uuid = p.post_uuid) AS likes_count
       FROM post p
       LEFT JOIN user u ON p.user_uuid = u.user_uuid
       WHERE p.post_uuid = ?
@@ -40,7 +44,7 @@ export const getPostByUuid = async (req: Request, res: Response) => {
         authorName: post.author_name,
         authorProfile: post.author_profile,
         createdAt: post.created_at,
-        likes: post.likes || 0,
+        likes: post.likes_count || 0,
         shares: post.shares || 0,
         views: post.views || 0,
       },
@@ -168,13 +172,18 @@ export const getCommentsByPostUuid = async (req: Request, res: Response) => {
     // 댓글 조회 (사용자 정보 포함)
     const comments = await dbPool.query(
       `
-      SELECT c.*, u.name AS author_name, u.profile_image AS author_profile
+      SELECT 
+        c.*,
+        u.name AS author_name, 
+        u.profile_image AS author_profile,
+        (SELECT COUNT(*) FROM likes WHERE target_type = 'comment' AND target_uuid = c.comment_uuid) AS likes_count,
+        (SELECT EXISTS(SELECT 1 FROM likes WHERE target_type = 'comment' AND target_uuid = c.comment_uuid AND user_uuid = ?)) AS user_liked
       FROM post_comment c
       LEFT JOIN user u ON c.user_uuid = u.user_uuid
       WHERE c.post_uuid = ?
       ORDER BY c.created_at ASC
       `,
-      [postUuid]
+      [req.user?.userUuid || null, postUuid] // 로그인한 사용자가 좋아요했는지 확인
     );
 
     // 응답용 댓글 데이터 가공
@@ -187,7 +196,8 @@ export const getCommentsByPostUuid = async (req: Request, res: Response) => {
       authorProfile: comment.author_profile,
       parentUuid: comment.parent_comment_uuid,
       createdAt: comment.created_at,
-      likes: comment.likes || 0,
+      likes: comment.likes_count || 0,
+      liked: !!comment.user_liked,
     }));
 
     res.status(200).json({
@@ -387,7 +397,20 @@ export const deleteComment = async (req: Request, res: Response) => {
     try {
       // 해당 댓글의 좋아요 먼저 삭제
       await connection.query(
-        "DELETE FROM comment_like WHERE comment_uuid = ?",
+        "DELETE FROM likes WHERE target_type = 'comment' AND target_uuid = ?",
+        [commentUuid]
+      );
+
+      // 대댓글이 있는 경우, 대댓글의 좋아요도 삭제
+      await connection.query(
+        `DELETE FROM likes WHERE target_type = 'comment' AND target_uuid IN 
+     (SELECT comment_uuid FROM post_comment WHERE parent_comment_uuid = ?)`,
+        [commentUuid]
+      );
+
+      // 대댓글 삭제
+      await connection.query(
+        "DELETE FROM post_comment WHERE parent_comment_uuid = ?",
         [commentUuid]
       );
 
@@ -415,6 +438,105 @@ export const deleteComment = async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       message: "댓글 삭제 중 오류가 발생했습니다.",
+    });
+  }
+};
+
+// 게시글/댓글 좋아요 토글
+export const toggleLike = async (req: Request, res: Response) => {
+  try {
+    const { targetType, targetUuid } = req.params; // post 또는 comment
+    const userUuid = req.user?.userUuid;
+
+    if (!userUuid) {
+      res.status(401).json({
+        success: false,
+        message: "로그인이 필요합니다.",
+      });
+      return;
+    }
+
+    // 대상이 실제 존재하는지 확인
+    let exists = false;
+    if (targetType === "post") {
+      const result = await dbPool.query(
+        "SELECT post_id FROM post WHERE post_uuid = ?",
+        [targetUuid]
+      );
+      exists = result.length > 0;
+    } else if (targetType === "comment") {
+      const result = await dbPool.query(
+        "SELECT comment_id FROM post_comment WHERE comment_uuid = ?",
+        [targetUuid]
+      );
+      exists = result.length > 0;
+    }
+
+    if (!exists) {
+      res.status(404).json({
+        success: false,
+        message: `${
+          targetType === "post" ? "게시글" : "댓글"
+        }을 찾을 수 없습니다.`,
+      });
+      return;
+    }
+
+    // 좋아요 여부 확인
+    const likeExists = await dbPool.query(
+      "SELECT * FROM likes WHERE target_type = ? AND target_uuid = ? AND user_uuid = ?",
+      [targetType, targetUuid, userUuid]
+    );
+
+    // 트랜잭션 시작
+    const connection = await dbPool.getConnection();
+    await connection.beginTransaction();
+
+    try {
+      if (likeExists.length > 0) {
+        // 좋아요 취소
+        await connection.query(
+          "DELETE FROM likes WHERE target_type = ? AND target_uuid = ? AND user_uuid = ?",
+          [targetType, targetUuid, userUuid]
+        );
+
+        await connection.commit();
+
+        res.status(200).json({
+          success: true,
+          message: `${
+            targetType === "post" ? "게시글" : "댓글"
+          } 좋아요가 취소되었습니다.`,
+          liked: false,
+        });
+      } else {
+        // 좋아요 추가
+        await connection.query(
+          "INSERT INTO likes (target_type, target_uuid, user_uuid, created_at) VALUES (?, ?, ?, NOW())",
+          [targetType, targetUuid, userUuid]
+        );
+
+        await connection.commit();
+
+        res.status(200).json({
+          success: true,
+          message: `${
+            targetType === "post" ? "게시글" : "댓글"
+          }에 좋아요를 했습니다.`,
+          liked: true,
+        });
+      }
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+  } catch (err) {
+    console.error("좋아요 처리 오류:", err);
+    res.status(500).json({
+      success: false,
+      message: "좋아요 처리 중 오류가 발생했습니다.",
     });
   }
 };
