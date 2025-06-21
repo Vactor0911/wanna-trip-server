@@ -1,6 +1,9 @@
 import express from "express";
 import { csrfProtection, limiter } from "../utils";
-import { authenticateToken } from "../middleware/authenticate";
+import {
+  authenticateToken,
+  optionalAuthenticate,
+} from "../middleware/authenticate";
 import {
   createComment,
   deleteComment,
@@ -13,7 +16,7 @@ import {
 const postRoute = express.Router();
 
 // UUID로 게시글 조회 (로그인 없이도 조회 가능)
-postRoute.get("/:postUuid", limiter, getPostByUuid);
+postRoute.get("/:postUuid", limiter, optionalAuthenticate, getPostByUuid);
 
 // 게시글 삭제
 postRoute.delete(
@@ -25,7 +28,12 @@ postRoute.delete(
 );
 
 // 게시글의 댓글 목록 조회 (로그인 없이도 조회 가능)
-postRoute.get("/comments/:postUuid", limiter, getCommentsByPostUuid);
+postRoute.get(
+  "/comments/:postUuid",
+  limiter,
+  optionalAuthenticate,
+  getCommentsByPostUuid
+);
 
 // 댓글 작성
 postRoute.post(
