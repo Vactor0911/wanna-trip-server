@@ -339,11 +339,8 @@ export const editPost = async (req: Request, res: Response) => {
       return;
     }
 
-    // 게시글 정보 가져오기
-    const post = posts[0];
-
     // 작성자가 맞는지 확인
-    if (post.user_uuid !== userUuid) {
+    if (posts[0].user_uuid !== userUuid) {
       res.status(403).json({
         success: false,
         message: "이 게시글을 수정할 권한이 없습니다.",
