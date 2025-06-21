@@ -12,6 +12,7 @@ import {
   editPost,
   getCommentsByPostUuid,
   getPopularPosts,
+  getPopularTags,
   getPostByUuid,
   getPostsByPage,
   toggleLike,
@@ -83,5 +84,8 @@ postRoute.post(
   csrfProtection,
   toggleLike
 );
+
+// 인기 태그 조회
+postRoute.get("/tags/popular", limiter, optionalAuthenticate, getPopularTags);
 
 export default postRoute;

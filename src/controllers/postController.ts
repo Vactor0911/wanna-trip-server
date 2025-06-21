@@ -883,3 +883,65 @@ export const toggleLike = async (req: Request, res: Response) => {
     });
   }
 };
+
+// 인기 태그 목록 조회
+export const getPopularTags = async (req: Request, res: Response) => {
+  const RESULT_LENGTH = 10; // 조회할 인기 태그 수
+
+  try {
+    // 태그별 게시글 수 조회
+    const tags = await dbPool.query(
+      `
+      SELECT tag
+      FROM post
+      WHERE tag IS NOT NULL AND tag != ''
+      LIMIT ?;
+      `,
+      [RESULT_LENGTH]
+    );
+
+    // 인기 태그가 없는 경우
+    if (tags.length === 0) {
+      res.status(404).json({
+        success: false,
+        message: "인기 태그를 찾을 수 없습니다.",
+      });
+      return;
+    }
+
+    // 응답 데이터 가공
+    // 태그별로 카운트하는 딕셔너리 선언
+    const tagCounts: { [tag: string]: number } = {};
+
+    tags.forEach((row) => {
+      if (!row.tag) return;
+      const splittedTags = row.tag.split(",").map((t: string) => t.trim());
+      splittedTags.forEach((tag: string) => {
+        if (tag) {
+          tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+        }
+      });
+    });
+
+    // 태그를 postCount 기준으로 정렬 후 상위 RESULT_LENGTH개만 추출
+    const response = Object.entries(tagCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, RESULT_LENGTH)
+      .map(([name, postCount]) => ({
+        name,
+        postCount,
+      }));
+
+    // 인기 태그 목록 반환
+    res.status(200).json({
+      success: true,
+      tags: response,
+    });
+  } catch (err) {
+    console.error("인기 태그 조회 오류:", err);
+    res.status(500).json({
+      success: false,
+      message: "인기 태그를 불러오는 중 오류가 발생했습니다.",
+    });
+  }
+};
