@@ -9,6 +9,7 @@ import {
   createComment,
   deleteComment,
   deletePost,
+  editComment,
   editPost,
   getCommentsByPostUuid,
   getPopularPosts,
@@ -65,6 +66,15 @@ postRoute.post(
   authenticateToken,
   csrfProtection,
   createComment
+);
+
+// 댓글 수정
+postRoute.put(
+  "/comments/:commentUuid",
+  limiter,
+  authenticateToken,
+  csrfProtection,
+  editComment
 );
 
 // 댓글 삭제 (본인 댓글 또는 게시글 작성자가 삭제 가능)
