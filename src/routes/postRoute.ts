@@ -21,7 +21,7 @@ import {
 const postRoute = express.Router();
 
 // 페이지로 게시글 목록 조회
-postRoute.get("/page/:page", limiter, optionalAuthenticate, getPostsByPage);
+postRoute.get("/page", limiter, optionalAuthenticate, getPostsByPage);
 
 // 인기 게시글 목록 조회
 postRoute.get("/popular", limiter, optionalAuthenticate, getPopularPosts);

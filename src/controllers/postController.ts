@@ -7,10 +7,10 @@ export const getPostsByPage = async (req: Request, res: Response) => {
   const POSTS_PER_PAGE = 10; // 페이지당 게시글 수
 
   try {
-    const { page } = req.params; // 페이지 번호
+    const { page = "1", keyword = "" } = req.query;
 
     // 페이지 오프셋 계산
-    const pageNumber = parseInt(page, 10);
+    const pageNumber = parseInt(page as string, 10);
     const pageOffset = (pageNumber - 1) * POSTS_PER_PAGE;
 
     // post 테이블에서 페이지에 맞는 게시글들 가져오기
@@ -19,7 +19,7 @@ export const getPostsByPage = async (req: Request, res: Response) => {
       SELECT 
         p.post_uuid, p.title, p.tag, p.shares,
         COALESCE(l.like_count, 0) AS like_count,
-        COALESCE(l2.liked, 0) AS liked,
+        IF(l2.user_uuid IS NULL, 0, 1) AS liked,
         COALESCE(c.comments, 0) AS comments
       FROM post AS p
 
@@ -32,23 +32,33 @@ export const getPostsByPage = async (req: Request, res: Response) => {
       ) AS l ON p.post_uuid COLLATE utf8mb4_unicode_ci = l.target_uuid COLLATE utf8mb4_unicode_ci
 
       /* 좋아요 여부 */
-      LEFT JOIN (
-        SELECT target_uuid, user_uuid, 1 AS liked
-        FROM likes
-        WHERE target_type = 'post'
-      ) AS l2 ON l2.target_uuid COLLATE utf8mb4_unicode_ci = p.post_uuid AND l2.user_uuid = ? COLLATE utf8mb4_unicode_ci
+      LEFT JOIN likes AS l2
+        ON l2.target_type = 'post'
+        AND l2.target_uuid COLLATE utf8mb4_unicode_ci = p.post_uuid COLLATE utf8mb4_unicode_ci
+        AND l2.user_uuid = ? COLLATE utf8mb4_unicode_ci
 
       /* 댓글 수 */
       LEFT JOIN (
         SELECT post_uuid, COUNT(*) AS comments
         FROM post_comment
+        GROUP BY post_uuid
       ) AS c ON c.post_uuid COLLATE utf8mb4_unicode_ci = p.post_uuid COLLATE utf8mb4_unicode_ci
 
+      WHERE (p.title LIKE CONCAT('%', ?, '%')
+        OR p.content LIKE CONCAT('%', ?, '%')
+        OR p.tag LIKE CONCAT('%', ?, '%'))
       ORDER BY p.created_at DESC
       LIMIT ?
       OFFSET ?;
       `,
-      [req.user?.userUuid, POSTS_PER_PAGE, pageOffset]
+      [
+        req.user?.userUuid,
+        keyword,
+        keyword,
+        keyword,
+        POSTS_PER_PAGE,
+        pageOffset,
+      ]
     );
 
     // 게시글 없음
