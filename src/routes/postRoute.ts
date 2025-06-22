@@ -5,18 +5,41 @@ import {
   optionalAuthenticate,
 } from "../middleware/authenticate";
 import {
+  addPost,
   createComment,
   deleteComment,
   deletePost,
+  editPost,
   getCommentsByPostUuid,
+  getPopularPosts,
+  getPopularTags,
   getPostByUuid,
+  getPostsByPage,
   toggleLike,
 } from "../controllers/postController";
 
 const postRoute = express.Router();
 
+// 페이지로 게시글 목록 조회
+postRoute.get("/page", limiter, optionalAuthenticate, getPostsByPage);
+
+// 인기 게시글 목록 조회
+postRoute.get("/popular", limiter, optionalAuthenticate, getPopularPosts);
+
 // UUID로 게시글 조회 (로그인 없이도 조회 가능)
 postRoute.get("/:postUuid", limiter, optionalAuthenticate, getPostByUuid);
+
+// 게시글 작성
+postRoute.post("/add", limiter, authenticateToken, csrfProtection, addPost);
+
+// 게시글 수정
+postRoute.put(
+  "/:postUuid",
+  limiter,
+  authenticateToken,
+  csrfProtection,
+  editPost
+);
 
 // 게시글 삭제
 postRoute.delete(
@@ -61,5 +84,8 @@ postRoute.post(
   csrfProtection,
   toggleLike
 );
+
+// 인기 태그 조회
+postRoute.get("/tags/popular", limiter, optionalAuthenticate, getPopularTags);
 
 export default postRoute;
