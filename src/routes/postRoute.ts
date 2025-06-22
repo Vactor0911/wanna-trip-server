@@ -21,11 +21,17 @@ import {
 
 const postRoute = express.Router();
 
-// 페이지로 게시글 목록 조회
+// 페이지로 게시글 목록 조회 - 비로그인용
 postRoute.get("/page", limiter, optionalAuthenticate, getPostsByPage);
 
-// 인기 게시글 목록 조회
+// 페이지로 게시글 목록 조회 - 로그인용
+postRoute.get("/auth/page", limiter, authenticateToken, getPostsByPage);
+
+// 인기 게시글 목록 조회 - 비로그인용
 postRoute.get("/popular", limiter, optionalAuthenticate, getPopularPosts);
+
+// 인기 게시글 목록 조회 - 로그인용
+postRoute.get("/auth/popular", limiter, authenticateToken, getPopularPosts);
 
 // UUID로 게시글 조회 (로그인 없이도 조회 가능)
 postRoute.get("/:postUuid", limiter, optionalAuthenticate, getPostByUuid);
