@@ -134,6 +134,7 @@ export const getPopularPosts = async (req: Request, res: Response) => {
       LEFT JOIN (
         SELECT post_uuid, COUNT(*) AS comments
         FROM post_comment
+        GROUP BY post_uuid
       ) AS c ON c.post_uuid COLLATE utf8mb4_unicode_ci = p.post_uuid COLLATE utf8mb4_unicode_ci
 
       ORDER BY like_count DESC
