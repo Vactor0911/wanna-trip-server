@@ -417,8 +417,9 @@ export const moveCard = async (req: Request, res: Response) => {
 
       // 위치 정보가 있는지 확인하고 복사
       const locationResults = await connection.query(
-        `SELECT * FROM location 
-        WHERE card_id = (SELECT card_id FROM card WHERE board_id = ? AND order_index = ?)`,
+        `SELECT l.* FROM location l
+        JOIN card c ON l.card_id = c.card_id
+        WHERE c.board_id = ? AND c.order_index = ?`,
         [sourceBoardId, sourceOrderIndex]
       );
 

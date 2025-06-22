@@ -49,23 +49,23 @@ export const register = async (req: Request, res: Response) => {
       return;
     }
 
-    // // 비밀번호 검증 추가
-    // if (
-    //   !validator.isStrongPassword(password, {
-    //     minLength: 8,
-    //     minNumbers: 1,
-    //     minSymbols: 1,
-    //     minUppercase: 0,
-    //   }) ||
-    //   !allowedSymbolsForPassword.test(password) // 허용된 문자만 포함하지 않은 경우
-    // ) {
-    //   res.status(400).json({
-    //     success: false,
-    //     message:
-    //       "비밀번호는 8자리 이상, 영문, 숫자, 특수문자(!@#$%^&*?)를 포함해야 합니다.",
-    //   });
-    //   return;
-    // }
+    // 비밀번호 검증 추가
+    if (
+      !validator.isStrongPassword(password, {
+        minLength: 8,
+        minNumbers: 1,
+        minSymbols: 1,
+        minUppercase: 0,
+      }) ||
+      !allowedSymbolsForPassword.test(password) // 허용된 문자만 포함하지 않은 경우
+    ) {
+      res.status(400).json({
+        success: false,
+        message:
+          "비밀번호는 8자리 이상, 영문, 숫자, 특수문자(!@#$%^&*?)를 포함해야 합니다.",
+      });
+      return;
+    }
 
     // Step 2: 비밀번호 암호화
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -1108,7 +1108,7 @@ export const getUserInfo = async (req: Request, res: Response) => {
 
     // DB에서 사용자 정보 조회
     const rows = await dbPool.query(
-      "SELECT user_id, email, name, profile_image FROM user WHERE user_id = ? AND state = 'active'",
+      "SELECT user_id, email, name, profile_image, user_uuid FROM user WHERE user_id = ? AND state = 'active'",
       [user.userId]
     );
 
@@ -1129,6 +1129,7 @@ export const getUserInfo = async (req: Request, res: Response) => {
         email: userInfo.email,
         nickname: userInfo.name,
         profileImage: userInfo.profile_image || null,
+        userUuid: userInfo.user_uuid,
       },
     });
   } catch (err) {

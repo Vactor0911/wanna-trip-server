@@ -436,3 +436,83 @@ export const moveBoard = async (req: Request, res: Response) => {
     connection.release();
   }
 };
+
+// 보드 내 카드 정렬
+export const sortBoardCards = async (req: Request, res: Response) => {
+  const connection = await dbPool.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    const userId = req.user.userId;
+    const { boardId } = req.params;
+    const { sortBy } = req.body; // 정렬 기준 (start_time, end_time)
+
+    // 정렬 기준 검증
+    const validSortOptions = ['start_time', 'end_time'];
+    if (!validSortOptions.includes(sortBy)) {
+      await connection.rollback();
+      res.status(400).json({
+        success: false,
+        message: "유효하지 않은 정렬 기준입니다. 'start_time' 또는 'end_time'을 사용하세요.",
+      });
+      return;
+    }
+
+    // 보드 소유자 확인
+    const boards = await connection.query(
+      `SELECT b.* 
+      FROM board b
+      JOIN template t ON b.template_id = t.template_id
+      WHERE b.board_id = ? AND t.user_id = ?`,
+      [boardId, userId]
+    );
+
+    if (boards.length === 0) {
+      await connection.rollback();
+      res.status(404).json({
+        success: false,
+        message: "보드를 찾을 수 없거나 접근 권한이 없습니다.",
+      });
+      return;
+    }
+
+    // 해당 보드의 모든 카드 가져오기
+    let cards;
+    if (sortBy === 'start_time') {
+      cards = await connection.query(
+        "SELECT card_id, start_time FROM card WHERE board_id = ? ORDER BY start_time",
+        [boardId]
+      );
+    } else if (sortBy === 'end_time') {
+      cards = await connection.query(
+        "SELECT card_id, end_time FROM card WHERE board_id = ? ORDER BY end_time",
+        [boardId]
+      );
+    }
+
+    // 카드 순서 업데이트
+    for (let i = 0; i < cards.length; i++) {
+      await connection.query(
+        "UPDATE card SET order_index = ? WHERE card_id = ?",
+        [i, cards[i].card_id]
+      );
+    }
+
+    await connection.commit();
+
+    res.status(200).json({
+      success: true,
+      message: "카드가 성공적으로 정렬되었습니다.",
+    });
+  } catch (err) {
+    await connection.rollback();
+    console.error("카드 정렬 오류:", err);
+    res.status(500).json({
+      success: false,
+      message: "카드를 정렬하는 중 오류가 발생했습니다.",
+    });
+  } finally {
+    connection.release();
+  }
+};
