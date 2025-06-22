@@ -687,6 +687,119 @@ export const createComment = async (req: Request, res: Response) => {
   }
 };
 
+// 댓글 수정
+export const editComment = async (req: Request, res: Response) => {
+  try {
+    const { commentUuid } = req.params;
+    const userUuid = req.user?.userUuid;
+    const { content } = req.body;
+
+    // 사용자 인증 실패
+    if (!userUuid) {
+      res.status(401).json({
+        success: false,
+        message: "로그인이 필요합니다.",
+      });
+      return;
+    }
+
+    // 댓글 내용이 비어있는 경우
+    if (!content || content.trim() === "") {
+      res.status(400).json({
+        success: false,
+        message: "댓글 내용을 입력해주세요.",
+      });
+      return;
+    }
+
+    // 댓글 정보 조회
+    const comments = await dbPool.query(
+      "SELECT user_uuid FROM post_comment WHERE comment_uuid = ?",
+      [commentUuid]
+    );
+
+    // 댓글이 존재하지 않는 경우
+    if (comments.length === 0) {
+      res.status(404).json({
+        success: false,
+        message: "댓글을 찾을 수 없습니다.",
+      });
+      return;
+    }
+
+    // 작성자 권한 없음
+    if (comments[0].user_uuid !== userUuid) {
+      res.status(403).json({
+        success: false,
+        message: "이 댓글을 수정할 권한이 없습니다.",
+      });
+      return;
+    }
+
+    // 댓글 수정
+    const connection = await dbPool.getConnection();
+
+    try {
+      // 트랜잭션 시작
+      await connection.beginTransaction();
+
+      // 댓글 수정
+      await connection.query(
+        "UPDATE post_comment SET content = ?, created_at = NOW() WHERE comment_uuid = ?",
+        [content, commentUuid]
+      );
+
+      // 수정된 댓글 조회
+      const comments = await connection.query(
+        `
+        SELECT c.*, u.name AS author_name, u.profile_image AS author_profile
+        FROM post_comment c
+        LEFT JOIN user u ON c.user_uuid = u.user_uuid
+        WHERE c.comment_uuid = ?
+        `,
+        [commentUuid]
+      );
+
+      // 트랜잭션 커밋
+      await connection.commit();
+
+      // 결과 반환
+      const comment = comments[0];
+      res.status(200).json({
+        success: true,
+        message: "댓글이 수정되었습니다.",
+        comment: {
+          id: comment.comment_id,
+          uuid: comment.comment_uuid,
+          content: comment.content,
+          authorUuid: comment.user_uuid,
+          authorName: comment.author_name,
+          authorProfile: comment.author_profile,
+          parentUuid: comment.parent_comment_uuid,
+          createdAt: comment.created_at,
+          likes: 0,
+        },
+      });
+    } catch (error) {
+      await connection.rollback(); // 오류 발생 시 롤백
+
+      console.error("댓글 수정 중 오류 발생:", error);
+      res.status(500).json({
+        success: false,
+        message: "댓글 수정 중 오류가 발생했습니다.",
+      });
+    } finally {
+      connection.release(); // 연결 해제
+    }
+  } catch (err) {
+    console.error("댓글 수정 오류:", err);
+    res.status(500).json({
+      success: false,
+      message: "댓글 수정 중 오류가 발생했습니다.",
+    });
+  }
+};
+
 // 댓글 삭제 (본인 댓글 또는 게시글 작성자가 삭제 가능)
 export const deleteComment = async (req: Request, res: Response) => {
   try {
