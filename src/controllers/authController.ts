@@ -385,10 +385,10 @@ export const kakaoLogin = async (req: Request, res: Response) => {
 
     // 쿠키에 Refresh Token 저장
     res.cookie("refreshToken", refreshToken, {
-      httpOnly: true, 
-      secure: process.env.NODE_ENV === "production",  // 환경에 따라 동적 설정
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production", // 환경에 따라 동적 설정
       // true: HTTPS 환경에서만 작동, 로컬 테스트에선 false로
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",   
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       // 로컬 개발환경에선 반드시 lax로, 배포시 none + secure:true
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7일
     });
@@ -502,7 +502,7 @@ export const googleLogin = async (req: Request, res: Response) => {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production", // 환경에 따라 동적 설정
       // true: HTTPS 환경에서만 작동, 로컬 테스트에선 false로
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax", 
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       // 로컬 개발환경에선 반드시 lax로, 배포시 none + secure:true
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7일
     });
@@ -595,14 +595,52 @@ export const sendVerifyEmail = async (req: Request, res: Response) => {
         }
         break;
 
-      //TODO : 수정 필요
-      case "modifyInfo": // 내 정보 수정
-        const modifyRows = await connection.query(
-          "SELECT email FROM user WHERE user_uuid = ? AND email = ?",
-          [user_uuid, email]
+      case "findPassword": // 비밀번호 찾기
+        const findPasswordRows = await connection.query(
+          "SELECT email, state, login_type FROM user WHERE email = ?",
+          [email]
         );
-        const modifyUser = modifyRows[0];
 
+        if (findPasswordRows.length === 0) {
+          await connection.rollback();
+          res.status(400).json({
+            success: false,
+            message: "존재하지 않는 이메일입니다. 회원가입 후 이용해주세요.",
+          });
+          return;
+        }
+
+        const findPasswordUser = findPasswordRows[0];
+
+        // 탈퇴된 계정 확인
+        if (findPasswordUser.state === "inactive") {
+          await connection.rollback();
+          res.status(400).json({
+            success: false,
+            message: "탈퇴된 계정입니다. 관리자에게 문의해주세요.",
+          });
+          return;
+        }
+
+        // 간편 로그인 사용자는 비밀번호 찾기 불가
+        if (findPasswordUser.login_type !== "normal") {
+          await connection.rollback();
+          let loginTypeName = "";
+
+          if (findPasswordUser.login_type === "kakao") {
+            loginTypeName = "카카오";
+          } else if (findPasswordUser.login_type === "google") {
+            loginTypeName = "구글";
+          } else {
+            loginTypeName = findPasswordUser.login_type;
+          }
+
+          res.status(400).json({
+            success: false,
+            message: `${loginTypeName} 간편 로그인으로 가입된 계정입니다.\n${loginTypeName} 로그인을 이용해주세요.`,
+          });
+          return;
+        }
         break;
 
       default:
@@ -1298,7 +1336,7 @@ export const updatePassword = async (req: Request, res: Response) => {
 
 // 계정 탈퇴
 export const deleteAccount = async (req: Request, res: Response) => {
-  const user = req.user as { userId: number, userUuid: string };
+  const user = req.user as { userId: number; userUuid: string };
   const { password } = req.body;
   const connection = await dbPool.getConnection();
 
@@ -1350,15 +1388,17 @@ export const deleteAccount = async (req: Request, res: Response) => {
       if (userInfo.profile_image) {
         // DB에 저장된 경로에서 파일명 추출
         const profileImagePath = path.join(
-          __dirname, 
-          "../../", 
+          __dirname,
+          "../../",
           userInfo.profile_image.substring(1) // 앞의 '/' 제거
         );
 
         // 파일이 존재하는지 확인 후 삭제
         if (fs.existsSync(profileImagePath)) {
           fs.unlinkSync(profileImagePath);
-          console.log(`사용자 ID ${user.userId}의 프로필 이미지 삭제: ${profileImagePath}`);
+          console.log(
+            `사용자 ID ${user.userId}의 프로필 이미지 삭제: ${profileImagePath}`
+          );
         }
 
         // 모든 종류의 프로필 이미지 삭제 (확장자 상관없이)
@@ -1415,10 +1455,7 @@ export const deleteAccount = async (req: Request, res: Response) => {
     }
 
     // 사용자 계정 삭제
-    await connection.query(
-      "DELETE from user WHERE user_id = ?",
-      [user.userId]
-    );
+    await connection.query("DELETE from user WHERE user_id = ?", [user.userId]);
 
     await connection.commit();
 
