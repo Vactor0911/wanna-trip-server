@@ -809,24 +809,12 @@ export const verifyEmailCode = async (req: Request, res: Response) => {
 
 // 비밀번호 재설정
 export const resetPassword = async (req: Request, res: Response) => {
-  const { id, email, password } = req.body;
+  const { email, password } = req.body;
 
-  if (!id || !email || !password) {
+  if (!email || !password) {
     res.status(400).json({
       success: false,
-      message: "학번, 이메일, 비밀번호는 필수 입력 항목입니다.",
-    });
-    return;
-  }
-
-  if (
-    !validator.isNumeric(id, { no_symbols: true }) ||
-    id.length < 7 ||
-    id.length > 10
-  ) {
-    res.status(400).json({
-      success: false,
-      message: "학번은 숫자로만 구성된 7~10자리 값이어야 합니다.",
+      message: "이메일, 비밀번호는 필수 입력 항목입니다.",
     });
     return;
   }
@@ -845,51 +833,80 @@ export const resetPassword = async (req: Request, res: Response) => {
       minSymbols: 1,
       minUppercase: 0,
     }) ||
-    !allowedSymbolsForPassword.test(password) // 허용된 문자만 포함하지 않은 경우
+    !allowedSymbolsForPassword.test(password)
   ) {
     res.status(400).json({
       success: false,
-      message: "비밀번호는 8자리 이상, 영문, 숫자, 특수문자를 포함해야 합니다.",
+      message:
+        "비밀번호는 8자리 이상, 영문, 숫자, 특수문자(!@#$%^&*?)를 포함해야 합니다.",
     });
     return;
   }
 
-  // Step 1: 사용자 조회
-  dbPool
-    .query("SELECT * FROM user WHERE id = ? AND email = ?", [id, email])
-    .then((rows: any[]) => {
-      if (rows.length === 0) {
-        return Promise.reject({
-          status: 404,
-          message: "일치하는 사용자를 찾을 수 없습니다.",
-        });
+  const connection = await dbPool.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    // Step 1: 사용자 조회 및 추가 검증
+    const rows = await connection.query(
+      "SELECT * FROM user WHERE email = ? AND state = 'active'",
+      [email]
+    );
+
+    if (rows.length === 0) {
+      await connection.rollback();
+      res.status(404).json({
+        success: false,
+        message: "일치하는 사용자를 찾을 수 없습니다.",
+      });
+      return;
+    }
+
+    const user = rows[0];
+
+    // 간편 로그인 사용자는 비밀번호 재설정 불가
+    if (user.login_type !== "normal") {
+      await connection.rollback();
+      let loginTypeName = "";
+      if (user.login_type === "kakao") {
+        loginTypeName = "카카오";
+      } else if (user.login_type === "google") {
+        loginTypeName = "구글";
       }
 
-      // Step 2: 비밀번호 암호화
-      return bcrypt.hash(password, 10).then((hashedPassword) => {
-        return dbPool.query("UPDATE user SET password = ? WHERE id = ?", [
-          hashedPassword,
-          id,
-        ]);
+      res.status(400).json({
+        success: false,
+        message: `${loginTypeName} 간편 로그인 계정은 비밀번호를 재설정할 수 없습니다.`,
       });
-    })
-    .then(() => {
-      res.status(200).json({
-        success: true,
-        message: "비밀번호가 성공적으로 변경되었습니다.",
-      });
-    })
-    .catch((err) => {
-      if (err.status) {
-        res.status(err.status).json({ success: false, message: err.message });
-      } else {
-        console.error("비밀번호 변경 중 서버 오류:", err);
-        res.status(500).json({
-          success: false,
-          message: "비밀번호 변경 중 서버 오류가 발생했습니다.",
-        });
-      }
+      return;
+    }
+
+    // Step 2: 비밀번호 암호화
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Step 3: 비밀번호 업데이트
+    await connection.query("UPDATE user SET password = ? WHERE email = ?", [
+      hashedPassword,
+      email,
+    ]);
+
+    await connection.commit();
+
+    res.status(200).json({
+      success: true,
+      message: "비밀번호가 성공적으로 변경되었습니다.",
     });
+  } catch (err) {
+    await connection.rollback();
+    console.error("비밀번호 변경 중 서버 오류:", err);
+    res.status(500).json({
+      success: false,
+      message: "비밀번호 변경 중 서버 오류가 발생했습니다.",
+    });
+  } finally {
+    connection.release();
+  }
 };
 
 // 엑세스 토큰 재발급
