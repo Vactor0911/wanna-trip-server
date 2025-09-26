@@ -29,6 +29,9 @@
     "vite-node": "^3.0.9"
   },
   "devDependencies": {
-    "@types/cookie-parser": "^1.4.8"
+    "@types/bcrypt": "^6.0.0",
+    "@types/cookie-parser": "^1.4.8",
+    "@types/nodemailer": "^7.0.1",
+    "@types/validator": "^13.15.3"
   }
 }
