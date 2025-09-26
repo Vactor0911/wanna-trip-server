@@ -41,7 +41,7 @@ const FRONT_PORT = 4000; // 프론트 서버 포트 번호
 const app = express();
 app.use(
   cors({
-    origin: `http://localhost:${FRONT_PORT}`,
+    origin: process.env.NODE_ENV === 'production' ? "https://vactor0911.github.io" : `http://localhost:${FRONT_PORT}`,
     credentials: true,
   })
 ); // CORS 설정, credentials는 프론트와 백엔드의 쿠키 공유를 위해 필요
