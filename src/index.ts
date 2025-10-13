@@ -36,7 +36,7 @@ dotenv.config();
 });
 
 const PORT = 3000; // 서버가 실행될 포트 번호
-const FRONT_PORT = 4000; // 프론트 서버 포트 번호
+const FRONT_PORT = 8080; // 프론트 서버 포트 번호
 
 const app = express();
 app.use(
