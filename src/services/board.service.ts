@@ -7,6 +7,12 @@ type CreateBoardParams = {
 };
 
 export const BoardService = {
+    /**
+     * 새 보드 생성
+     * @param params 템플릿 ID, 여행 일차
+     * @param connection 데이터베이스 커넥션
+     * @returns 삽입 결과
+     */
   createBoard: async (
     params: CreateBoardParams,
     connection: PoolConnection

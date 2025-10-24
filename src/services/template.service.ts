@@ -29,6 +29,7 @@ export const TemplateSerice = {
    * 새 템플릿 생성
    * @param params 사용자 ID, 템플릿 제목, 템플릿 uuid
    * @param connection 데이터베이스 커넥션
+   * @returns 쿼리 결과
    */
   createTemplate: async (
     params: CreateTemplateParams,
