@@ -1,15 +1,17 @@
 import { Request, Response } from "express";
+import { TemplateSerice } from "../services/template.service";
+import z from "zod";
 import { dbPool } from "../config/db";
+import { v4 as uuidv4 } from "uuid";
+import { BoardService } from "../services/board.service";
 
 // 사용자별 템플릿 목록 조회
 export const getUserTemplates = async (req: Request, res: Response) => {
   try {
-    const userId = req.user.userId; // 인증 미들웨어에서 설정한 사용자 ID
+    const userId = req.user.id; // 인증 미들웨어에서 설정한 사용자 ID
 
-    const templates = await dbPool.query(
-      "SELECT * FROM template WHERE user_id = ? ORDER BY created_at DESC",
-      [userId]
-    );
+    // 사용자의 템플릿 목록 조회
+    const templates = await TemplateSerice.getTemplateByUserId(userId);
 
     res.status(200).json({
       success: true,
@@ -25,47 +27,46 @@ export const getUserTemplates = async (req: Request, res: Response) => {
 };
 
 // 새 템플릿 생성
+const createTemplateSchema = z.object({
+  title: z.string().min(1, "템플릿 이름이 필요합니다."),
+});
 export const createTemplate = async (req: Request, res: Response) => {
-  const connection = await dbPool.getConnection(); // 커넥션 획득
+  const userId = req.user.userId;
+
+  // 요청 데이터 검증
+  const parsed = createTemplateSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({
+      success: false,
+      message: parsed.error.message,
+    });
+  }
+
+  // 검증된 데이터 추출
+  const { title } = parsed.data;
+
+  // DB 커넥션 획득
+  const connection = await dbPool.getConnection();
 
   try {
-    await connection.beginTransaction(); // 트랜잭션 시작
+    // 트랜잭션 시작
+    await connection.beginTransaction();
 
-    const userId = req.user.userId;
-    const { title } = req.body;
-
-    if (!title) {
-      await connection.rollback(); // 롤백 추가
-      res.status(400).json({
-        success: false,
-        message: "템플릿 이름이 필요합니다.",
-      });
-      return;
-    }
+    // 새 템플릿 uuid 생성
+    const templateUuid = uuidv4();
 
     // 새 템플릿 저장
-    const result = await connection.query(
-      "INSERT INTO template (user_id, title) VALUES (?, ?)",
-      [userId, title]
+    const result = await TemplateSerice.createTemplate(
+      { userId, title, templateUuid },
+      connection
     );
-
     const templateId = result.insertId;
 
-    // 새로 생성된 템플릿의 UUID 조회
-    const templates = await connection.query(
-      "SELECT template_uuid FROM template WHERE template_id = ?",
-      [templateId]
-    );
+    // 1일차 초기 보드 생성
+    await BoardService.createBoard({ templateId, dayNumber: 1 }, connection);
 
-    const templateUuid = templates[0].template_uuid;
-
-    // 초기 보드 생성 (Day 1)
-    await connection.query(
-      "INSERT INTO board (template_id, day_number, template_uuid) VALUES (?, ?, ?)",
-      [templateId, 1, templateUuid]
-    );
-
-    await connection.commit(); // 트랜잭션 커밋
+    // 트랜잭션 커밋
+    await connection.commit();
 
     res.status(201).json({
       success: true,
@@ -79,7 +80,8 @@ export const createTemplate = async (req: Request, res: Response) => {
       message: "템플릿을 생성하는 중 오류가 발생했습니다.",
     });
   } finally {
-    connection.release(); // 커넥션 반환
+    // 커넥션 반환
+    connection.release();
   }
 };
 
@@ -162,7 +164,7 @@ export const getTemplateByUuid = async (req: Request, res: Response) => {
     res.status(200).json({
       success: true,
       template,
-      isOwner: template.user_id === userId // 소유자 여부 정보 추가
+      isOwner: template.user_id === userId, // 소유자 여부 정보 추가
     });
   } catch (err) {
     console.error("UUID 템플릿 조회 오류:", err);
@@ -316,7 +318,6 @@ export const mergeTemplates = async (
   }
 };
 
-
 // 인기 템플릿 조회 (공유 수 기준 상위 3개)
 export const getPopularTemplates = async (req: Request, res: Response) => {
   try {
@@ -330,26 +331,25 @@ export const getPopularTemplates = async (req: Request, res: Response) => {
     );
 
     // 프론트엔드에서 필요한 형식으로 변환
-    const formattedTemplates = templates.map(template => ({
+    const formattedTemplates = templates.map((template) => ({
       uuid: template.template_uuid,
       title: template.title,
       username: template.username,
-      shared_count: template.shared_count
+      shared_count: template.shared_count,
     }));
 
     res.status(200).json({
       success: true,
-      templates: formattedTemplates
+      templates: formattedTemplates,
     });
   } catch (err) {
     console.error("인기 템플릿 조회 오류:", err);
     res.status(500).json({
       success: false,
-      message: "인기 템플릿을 불러오는 중 오류가 발생했습니다."
+      message: "인기 템플릿을 불러오는 중 오류가 발생했습니다.",
     });
   }
 };
-
 
 // 템플릿 내 모든 보드의 카드 정렬
 export const sortTemplateCards = async (req: Request, res: Response) => {
@@ -363,12 +363,13 @@ export const sortTemplateCards = async (req: Request, res: Response) => {
     const { sortBy } = req.body; // 정렬 기준 (start_time, end_time)
 
     // 정렬 기준 검증
-    const validSortOptions = ['start_time', 'end_time'];
+    const validSortOptions = ["start_time", "end_time"];
     if (!validSortOptions.includes(sortBy)) {
       await connection.rollback();
       res.status(400).json({
         success: false,
-        message: "유효하지 않은 정렬 기준입니다. 'start_time', 'end_time' 중 하나를 사용하세요.",
+        message:
+          "유효하지 않은 정렬 기준입니다. 'start_time', 'end_time' 중 하나를 사용하세요.",
       });
       return;
     }
@@ -399,20 +400,20 @@ export const sortTemplateCards = async (req: Request, res: Response) => {
     // 각 보드별로 카드 정렬
     for (const board of boards) {
       const boardId = board.board_id;
-      
+
       // 해당 보드의 모든 카드 가져오기
       let cards;
-      if (sortBy === 'start_time') {
+      if (sortBy === "start_time") {
         cards = await connection.query(
           "SELECT card_id, start_time FROM card WHERE board_id = ? ORDER BY start_time",
           [boardId]
         );
-      } else if (sortBy === 'end_time') {
+      } else if (sortBy === "end_time") {
         cards = await connection.query(
           "SELECT card_id, end_time FROM card WHERE board_id = ? ORDER BY end_time",
           [boardId]
         );
-      } 
+      }
 
       // 카드 순서 업데이트
       for (let i = 0; i < cards.length; i++) {
