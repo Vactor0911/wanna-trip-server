@@ -151,8 +151,8 @@ class BoardModel {
    * @returns 보드 이동 결과
    */
   static async shiftBoards(
-    fromDayNumber: string,
-    toDayNumber: string,
+    fromDayNumber: number,
+    toDayNumber: number,
     shiftBy: "left" | "right",
     templateId: string,
     connection: PoolConnection | Pool = dbPool
