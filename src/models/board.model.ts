@@ -2,7 +2,7 @@ import { Pool, PoolConnection } from "mariadb";
 import { dbPool } from "../config/db";
 
 type CreateBoardParams = {
-  board_uuid: string;
+  boardUuid: string;
   templateId: string;
   dayNumber: number;
 };
@@ -69,11 +69,11 @@ class BoardModel {
     params: CreateBoardParams,
     connection: PoolConnection | Pool = dbPool
   ) {
-    const { board_uuid, templateId, dayNumber } = params;
+    const { boardUuid, templateId, dayNumber } = params;
 
     const result = await connection.execute(
       `INSERT INTO board (board_uuid, template_id, day_number) VALUES (?, ?, ?)`,
-      [board_uuid, templateId, dayNumber]
+      [boardUuid, templateId, dayNumber]
     );
     return result;
   }
