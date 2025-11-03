@@ -78,9 +78,9 @@ class TemplateModel {
 
   /**
    * 템플릿 생성
-   * @param params
-   * @param connection
-   * @returns
+   * @param params 템플릿 생성 파라미터
+   * @param connection 데이터베이스 연결 객체
+   * @returns 생성 결과
    */
   static async create(
     params: CreateTemplateParams,
@@ -99,36 +99,40 @@ class TemplateModel {
    * 템플릿 id로 템플릿 삭제
    * @param templateId 템플릿 id
    * @param connection 데이터베이스 연결 객체
+   * @return 삭제 결과
    */
   static async deleteById(
     templateId: string,
     connection: PoolConnection | Pool = dbPool
   ) {
-    await connection.execute(
+    const result = await connection.execute(
       `
         DELETE FROM template
         WHERE template_id = ?
       `,
       [templateId]
     );
+    return result;
   }
 
   /**
    * 템플릿 uuid로 템플릿 삭제
    * @param templateUuid 템플릿 uuid
    * @param connection 데이터베이스 연결 객체
+   * @return 삭제 결과
    */
   static async deleteByUuid(
     templateUuid: string,
     connection: PoolConnection | Pool = dbPool
   ) {
-    await connection.execute(
+    const result = await connection.execute(
       `
         DELETE FROM template
         WHERE template_uuid = ?
       `,
       [templateUuid]
     );
+    return result;
   }
 
   /**
