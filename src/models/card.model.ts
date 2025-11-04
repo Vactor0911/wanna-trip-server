@@ -201,6 +201,57 @@ class CardModel {
     );
     return result;
   }
+
+  /**
+   * 보드 id로 보드 내 카드 시간순 정렬
+   * @param boardId 보드 id
+   * @param connection 데이터베이스 연결 객체
+   */
+  static async sortByBoardId(
+    boardId: string,
+    connection: PoolConnection | Pool = dbPool
+  ) {
+    const result = await connection.execute(
+      `
+        SET @index = -1;
+
+        UPDATE card
+        SET order_index = (@index := index + 1)
+        WHERE board_id = ?
+        ORDER BY start_time ASC;
+      `,
+      [boardId]
+    );
+  }
+
+  /**
+   * 템플릿 id로 템플릿 내 보드별 카드 시간순 정렬
+   * @param templateId 템플릿 id
+   * @param connection 데이터베이스 연결 객체
+   */
+  static async sortByTemplateId(
+    templateId: string,
+    connection: PoolConnection | Pool = dbPool
+  ) {
+    const result = await connection.execute(
+      `
+        SET @day = NULL;
+        set @index = -1;
+
+        UPDATE card c
+        JOIN board b ON c.board_id = b.board_id
+        SET c.order_index = (
+          CASE
+            WHEN @day = b.day_number THEN @index := index + 1
+            ELSE @index := (@day := b.day) * 0
+          END
+        )
+        WHERE b.template_id = ?
+        ORDER BY b.day_number ASC, c.start_time ASC;
+      `,
+      [templateId]
+    );
+  }
 }
 
 export default CardModel;
