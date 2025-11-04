@@ -43,6 +43,27 @@ class BoardModel {
   }
 
   /**
+   * 템플릿 id와 일차로 보드 조회
+   * @param templateId 템플릿 id
+   * @param dayNumber 일차
+   * @returns 조회된 보드
+   */
+  static async findByTemplateIdAndDayNumber(
+    templateId: string,
+    dayNumber: number
+  ) {
+    const boards = await dbPool.execute(
+      `
+        SELECT * FROM board
+        WHERE template_id = ? AND day_number = ?
+        LIMIT 1
+      `,
+      [templateId, dayNumber]
+    );
+    return boards && boards.length > 0 ? boards[0] : null;
+  }
+
+  /**
    * 템플릿 id로 보드 전체 조회
    * @param templateId 템플릿 id
    * @returns 조회된 보드 목록

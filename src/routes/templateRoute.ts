@@ -10,6 +10,7 @@ import {
   sortTemplateCards,
 } from "../controllers/templateController";
 import { csrfProtection, limiter } from "../utils";
+import TemplateController from "../controllers/template.controller";
 
 const router = express.Router();
 
@@ -20,7 +21,7 @@ router.use(csrfProtection);
 router.get("/", limiter, authenticateToken, getUserTemplates);
 
 // 새 템플릿 생성
-router.post("/", limiter, authenticateToken, createTemplate);
+router.post("/", limiter, authenticateToken, TemplateController.createTemplate);
 
 // 템플릿 삭제
 router.delete("/:templateId", limiter, authenticateToken, deleteTemplate);
