@@ -4,7 +4,6 @@ import { dbPool } from "../config/db";
 type CreateTemplateParams = {
   userId: string;
   title: string;
-  templateUuid: string;
 };
 
 class TemplateModel {
@@ -86,11 +85,11 @@ class TemplateModel {
     params: CreateTemplateParams,
     connection: PoolConnection | Pool = dbPool
   ) {
-    const { userId, title, templateUuid } = params;
+    const { userId, title } = params;
 
     const result = await connection.execute(
-      `INSERT INTO template (user_id, title, template_uuid) VALUES (?, ?, ?)`,
-      [userId, title, templateUuid]
+      `INSERT INTO template (user_id, title) VALUES (?, ?)`,
+      [userId, title]
     );
     return result;
   }
