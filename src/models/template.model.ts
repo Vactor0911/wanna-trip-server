@@ -76,6 +76,24 @@ class TemplateModel {
   }
 
   /**
+   * 사용자 id와 제목으로 템플릿 존재 여부 확인
+   * @param userId 사용자 id
+   * @param title 제목
+   * @returns 템플릿 존재 여부
+   */
+  static async existsByUserIdAndTitle(userId: string, title: string) {
+    const result = await dbPool.execute(
+      `
+        SELECT COUNT(*) AS count
+        FROM template
+        WHERE user_id = ? AND title = ?
+      `,
+      [userId, title]
+    );
+    return result && result.length > 0 ? result[0].count > 0 : false;
+  }
+
+  /**
    * 템플릿 생성
    * @param params 템플릿 생성 파라미터
    * @param connection 데이터베이스 연결 객체
