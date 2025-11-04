@@ -3,6 +3,7 @@ import { dbPool } from "../config/db";
 
 // 카드 생성 파라미터 타입
 type CreateCardParams = {
+  cardUuid: string;
   boardId: string;
   content?: string;
   startTime: string;
@@ -63,16 +64,23 @@ class CardModel {
     params: CreateCardParams,
     connection: PoolConnection | Pool = dbPool
   ) {
-    const { boardId, content = null, startTime, endTime, orderIndex } = params;
+    const {
+      cardUuid,
+      boardId,
+      content = null,
+      startTime,
+      endTime,
+      orderIndex,
+    } = params;
 
     const duration = ""; // TODO: duration 계산 로직 추가 필요
     const result = await connection.execute(
       `
         INSERT INTO card 
-        (board_id, content, time_start, time_end, duration, order_index) 
-        VALUES (?, ?, ?, ?, ?, ?)
+        (card_uuid, board_id, content, time_start, time_end, duration, order_index) 
+        VALUES (?, ?, ?, ?, ?, ?, ?)
       `,
-      [boardId, content, startTime, endTime, duration, orderIndex]
+      [cardUuid, boardId, content, startTime, endTime, duration, orderIndex]
     );
     return result;
   }
