@@ -24,7 +24,7 @@ router.get("/", limiter, authenticateToken, getUserTemplates);
 router.post("/", limiter, authenticateToken, TemplateController.createTemplate);
 
 // 템플릿 삭제
-router.delete("/:templateId", limiter, authenticateToken, deleteTemplate);
+router.delete("/:templateUuid", limiter, authenticateToken, TemplateController.deleteTemplate);
 
 // UUID로 특정 템플릿 조회 (프론트에서 URL 접근 시 사용)
 router.get("/uuid/:templateUuid", limiter, authenticateToken, getTemplateByUuid);

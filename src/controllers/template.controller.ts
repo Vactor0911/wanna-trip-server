@@ -10,7 +10,7 @@ class TemplateController {
    * 템플릿 생성
    */
   static async createTemplate(req: Request, res: Response) {
-    const userId = req.user?.userId!;
+    const userId = req?.user?.userId!;
 
     // 요청 데이터 검증
     const createTemplateSchema = z.object({
@@ -79,8 +79,11 @@ class TemplateController {
     }
   }
 
+  /**
+   * 템플릿 삭제
+   */
   static async deleteTemplate(req: Request, res: Response) {
-    const userId = req.user?.userId!;
+    const userId = req?.user?.userId!;
 
     // 요청 데이터 검증
     const deleteTemplateSchema = z.object({
@@ -96,6 +99,46 @@ class TemplateController {
         message: parsed.error.message,
       });
       return;
+    }
+
+    // 데이터 추출
+    const { templateUuid } = parsed.data;
+
+    // DB 커넥션 획득
+    const connection = await dbPool.getConnection();
+
+    try {
+      // 트랜잭션 시작
+      await connection.beginTransaction();
+
+      // 템플릿 삭제
+      await TemplateService.deleteTemplateByUuid(
+        userId,
+        templateUuid,
+        connection
+      );
+
+      // 트랜잭션 커밋
+      await connection.commit();
+
+      // 응답 전송
+      res.status(200).json({
+        success: true,
+        message: "템플릿이 성공적으로 삭제되었습니다.",
+      });
+    } catch (error) {
+      // 트랜잭션 롤백
+      await connection.rollback();
+
+      // 오류 응답 전송
+      console.error("템플릿 삭제 오류:", error);
+      res.status(500).json({
+        success: false,
+        message: "템플릿을 삭제하는 중 오류가 발생했습니다.",
+      });
+    } finally {
+      // 커넥션 반환
+      connection.release();
     }
   }
 }

@@ -49,17 +49,17 @@ class TemplateService {
   /**
    * 템플릿 삭제
    * @param userId 사용자 id
-   * @param templateId 템플릿 id
+   * @param templateUuid 템플릿 uuid
    * @param connection 데이터베이스 연결 객체
    * @returns 삭제 결과
    */
-  static async deleteTemplateById(
+  static async deleteTemplateByUuid(
     userId: string,
-    templateId: string,
+    templateUuid: string,
     connection: PoolConnection
   ) {
     // 템플릿 소유권 확인
-    const template = await TemplateModel.findById(templateId);
+    const template = await TemplateModel.findByUuid(templateUuid);
     if (!template) {
       throw new Error("템플릿을 찾을 수 없습니다.", { cause: "NOT_FOUND" });
     } else if (template.user_id !== userId) {
@@ -68,7 +68,7 @@ class TemplateService {
 
     // 템플릿 삭제
     try {
-      const result = await TemplateModel.deleteById(templateId, connection);
+      const result = await TemplateModel.deleteByUuid(templateUuid, connection);
       return result;
     } catch (error) {
       throw error;
