@@ -10,6 +10,7 @@ import {
   moveBoard,
   sortBoardCards,
 } from "../controllers/boardController";
+import BoardController from "../controllers/board.controller";
 
 const boardRoute = express.Router();
 
@@ -19,11 +20,8 @@ boardRoute.use(csrfProtection);
 // 보드 이동
 boardRoute.post("/move", limiter, authenticateToken, moveBoard);
 
-// 새 보드 생성 (맨 뒤에 생성)
-boardRoute.post("/:templateUuid", limiter, authenticateToken, createBoard);
-
-// 특정 보드 뒤에 새 보드 생성
-boardRoute.post("/after/:boardId", limiter, authenticateToken, createBoardAfter);
+// 보드 생성 및 삽입
+boardRoute.post("/", limiter, authenticateToken, BoardController.createBoard);
 
 // 보드 삭제
 boardRoute.delete("/:boardId", limiter, authenticateToken, deleteBoard);

@@ -24,11 +24,7 @@ class TemplateController {
     });
     const parsed = createTemplateSchema.safeParse(req.body);
     if (!parsed.success) {
-      res.status(400).json({
-        success: false,
-        message: parsed.error.message,
-      });
-      return;
+      throw new BadRequestError(parsed.error.message);
     }
 
     // 데이터 추출
@@ -50,7 +46,12 @@ class TemplateController {
         // 1일차 보드 생성
         const templateId = result.insertId.toString();
         const boardUuid = uuidv4();
-        await BoardService.createBoard(boardUuid, templateId, 1, connection);
+        await BoardService.appendBoard(
+          userId,
+          boardUuid,
+          templateId,
+          connection
+        );
 
         // 응답 전송
         res.status(201).json({

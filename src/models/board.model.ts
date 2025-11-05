@@ -7,6 +7,11 @@ type CreateBoardParams = {
   dayNumber: number;
 };
 
+type InsertBoardParams = {
+  boardUuid: string;
+  templateId: string;
+};
+
 class BoardModel {
   /**
    * 보드 id로 보드 조회
@@ -78,6 +83,26 @@ class BoardModel {
       [templateId]
     );
     return boards;
+  }
+
+  /**
+   * 보드 권한 확인
+   * @param boardId 보드 id
+   * @param userId 사용자 id
+   * @returns 권한 확인 결과
+   */
+  static async checkPermission(boardId: string, userId: string) {
+    const result = await dbPool.execute(
+      `
+        SELECT b.board_id
+        FROM board b
+        JOIN template t ON b.template_id = t.template_id
+        WHERE b.board_id = ? AND t.user_id = ?
+        LIMIT 1;
+      `,
+      [boardId, userId]
+    );
+    return result && result.length > 0;
   }
 
   /**
