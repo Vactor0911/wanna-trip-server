@@ -1,5 +1,6 @@
 import { PoolConnection } from "mariadb";
 import BoardModel from "../models/board.model";
+import { ConflictError, ForbiddenError, InternalServerError, NotFoundError } from "../errors/CustomErrors";
 
 class BoardService {
   /**
@@ -11,9 +12,9 @@ class BoardService {
   static async getBoardById(userId: string, boardId: string) {
     const board = await BoardModel.findById(boardId);
     if (!board) {
-      throw new Error("보드를 찾을 수 없습니다.", { cause: "NOT_FOUND" });
+      throw new NotFoundError("보드를 찾을 수 없습니다.");
     } else if (board.userId !== userId) {
-      throw new Error("권한이 없습니다.", { cause: "FORBIDDEN" });
+      throw new ForbiddenError("권한이 없습니다.");
     }
     return board;
   }
@@ -38,9 +39,7 @@ class BoardService {
       dayNumber
     );
     if (existingBoard) {
-      throw new Error("이미 존재하는 일차입니다.", {
-        cause: "CONFLICT",
-      });
+      throw new ConflictError("이미 존재하는 일차입니다.");
     }
 
     // 보드 생성
@@ -53,9 +52,7 @@ class BoardService {
       const result = await BoardModel.create(params, connection);
       return result;
     } catch (error) {
-      throw new Error("보드 생성에 실패했습니다.", {
-        cause: "INTERNAL_SERVER_ERROR",
-      });
+      throw new InternalServerError("보드 생성에 실패했습니다.");
     }
   }
 }

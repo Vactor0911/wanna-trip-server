@@ -1,5 +1,6 @@
 import { PoolConnection } from "mariadb";
 import TemplateModel from "../models/template.model";
+import { ForbiddenError, NotFoundError } from "../errors/CustomErrors";
 
 class TemplateService {
   /**
@@ -11,11 +12,19 @@ class TemplateService {
   static async getTemplateById(userId: string, templateId: string) {
     const template = await TemplateModel.findById(templateId);
     if (!template) {
-      throw new Error("템플릿을 찾을 수 없습니다.", { cause: "NOT_FOUND" });
+      throw new NotFoundError("템플릿을 찾을 수 없습니다.");
     } else if (template.user_id !== userId) {
-      throw new Error("템플릿에 대한 권한이 없습니다.", { cause: "FORBIDDEN" });
+      throw new ForbiddenError("템플릿에 대한 권한이 없습니다.");
     }
     return template;
+  }
+
+  static async getTemplatesByUserId(userId: string) {
+    const templates = await TemplateModel.findAllByUserId(userId);
+    if (!templates) {
+      throw new NotFoundError("템플릿을 찾을 수 없습니다.");
+    }
+    return templates;
   }
 
   /**
@@ -61,9 +70,9 @@ class TemplateService {
     // 템플릿 소유권 확인
     const template = await TemplateModel.findByUuid(templateUuid);
     if (!template) {
-      throw new Error("템플릿을 찾을 수 없습니다.", { cause: "NOT_FOUND" });
+      throw new NotFoundError("템플릿을 찾을 수 없습니다.");
     } else if (template.user_id !== userId) {
-      throw new Error("템플릿에 대한 권한이 없습니다.", { cause: "FORBIDDEN" });
+      throw new ForbiddenError("템플릿에 대한 권한이 없습니다.");
     }
 
     // 템플릿 삭제
