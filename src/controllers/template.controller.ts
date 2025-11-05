@@ -112,7 +112,6 @@ class TemplateController {
 
     // 템플릿 전체 검색
     const templates = await TemplateService.getTemplatesByUserId(userId);
-    console.log(templates);
 
     // 응답 데이터 생성
     const data = templates.map((template: any) => ({
