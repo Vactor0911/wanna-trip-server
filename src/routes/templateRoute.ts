@@ -20,14 +20,14 @@ router.use(csrfProtection);
 // 템플릿 목록 조회
 router.get("/", limiter, authenticateToken, TemplateController.getTemplates);
 
+// UUID로 특정 템플릿 조회
+router.get("/:templateUuid", limiter, authenticateToken, TemplateController.getTemplate);
+
 // 새 템플릿 생성
 router.post("/", limiter, authenticateToken, TemplateController.createTemplate);
 
 // 템플릿 삭제
 router.delete("/:templateUuid", limiter, authenticateToken, TemplateController.deleteTemplate);
-
-// UUID로 특정 템플릿 조회 (프론트에서 URL 접근 시 사용)
-router.get("/uuid/:templateUuid", limiter, authenticateToken, getTemplateByUuid);
 
 // UUID로 템플릿 수정 (제목 변경) - 새로 추가된 엔드포인트
 router.put("/uuid/:templateUuid", limiter, authenticateToken, csrfProtection, updateTemplateByUuid);

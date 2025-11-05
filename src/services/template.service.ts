@@ -19,6 +19,22 @@ class TemplateService {
     return template;
   }
 
+  /**
+   * 템플릿 uuid로 템플릿 조회
+   * @param userId 사용자 id
+   * @param templateUuid 템플릿 id
+   * @returns 조회된 템플릿
+   */
+  static async getTemplateByUuid(userId: string, templateUuid: string) {
+    const template = await TemplateModel.findByUuid(templateUuid);
+    if (!template) {
+      throw new NotFoundError("템플릿을 찾을 수 없습니다.");
+    } else if (template.user_id !== userId) {
+      throw new ForbiddenError("템플릿에 대한 권한이 없습니다.");
+    }
+    return template;
+  }
+
   static async getTemplatesByUserId(userId: string) {
     const templates = await TemplateModel.findAllByUserId(userId);
     if (!templates) {

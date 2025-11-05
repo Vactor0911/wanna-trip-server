@@ -107,6 +107,9 @@ class TemplateController {
     });
   });
 
+  /**
+   * 템플릿 목록 조회
+   */
   static async getTemplates(req: Request, res: Response) {
     const userId = req?.user?.userId!;
 
@@ -126,6 +129,38 @@ class TemplateController {
     res.status(200).json({
       success: true,
       message: "템플릿 목록을 성공적으로 가져왔습니다.",
+      data,
+    });
+  }
+
+  /**
+   * UUID로 특정 템플릿 조회
+   */
+  static async getTemplate(req: Request, res: Response) {
+    const userId = req?.user?.userId!;
+
+    // 요청 데이터 추출
+    const { templateUuid } = req.params;
+
+    // 템플릿 검색
+    const template = await TemplateService.getTemplateByUuid(
+      userId,
+      templateUuid
+    );
+
+    // 응답 데이터 생성
+    const data = {
+      templateUuid: template.template_uuid,
+      title: template.title,
+      createdAt: template.created_at,
+      updatedAt: template.updated_at,
+      sharedCount: template.shared_count,
+    };
+
+    // 응답 전송
+    res.status(200).json({
+      success: true,
+      message: "템플릿을 성공적으로 가져왔습니다.",
       data,
     });
   }
