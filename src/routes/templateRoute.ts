@@ -29,8 +29,8 @@ router.post("/", limiter, authenticateToken, TemplateController.createTemplate);
 // 템플릿 삭제
 router.delete("/:templateUuid", limiter, authenticateToken, TemplateController.deleteTemplate);
 
-// UUID로 템플릿 수정 (제목 변경) - 새로 추가된 엔드포인트
-router.put("/uuid/:templateUuid", limiter, authenticateToken, csrfProtection, updateTemplateByUuid);
+// UUID로 템플릿 수정
+router.put("/:templateUuid", limiter, authenticateToken, csrfProtection, TemplateController.updateTemplate);
 
 // 인기 템플릿 조회 - 로그인 필요 없음 (공개 API)
 router.get("/popular", limiter, getPopularTemplates);

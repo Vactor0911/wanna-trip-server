@@ -99,6 +99,41 @@ class TemplateService {
       throw error;
     }
   }
+
+  /**
+   * 템플릿 수정
+   * @param userId 사용자 id
+   * @param templateUuid 템플릿 uuid
+   * @param title 제목
+   * @param connection 데이터베이스 연결 객체
+   * @returns 수정 결과
+   */
+  static async updateTemplateByUuid(
+    userId: string,
+    templateUuid: string,
+    title: string,
+    connection: PoolConnection
+  ) {
+    // 템플릿 소유권 확인
+    const template = await TemplateModel.findByUuid(templateUuid);
+    if (!template) {
+      throw new NotFoundError("템플릿을 찾을 수 없습니다.");
+    } else if (template.user_id !== userId) {
+      throw new ForbiddenError("템플릿에 대한 권한이 없습니다.");
+    }
+
+    // 템플릿 수정
+    try {
+      const result = await TemplateModel.updateTitleById(
+        template.template_id.toString(),
+        title,
+        connection
+      );
+      return result;
+    } catch (error) {
+      throw error;
+    }
+  }
 }
 
 export default TemplateService;

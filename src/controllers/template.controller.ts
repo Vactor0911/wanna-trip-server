@@ -6,12 +6,13 @@ import BoardService from "../services/board.service";
 import { v4 as uuidv4 } from "uuid";
 import { asyncHandler } from "../utils/asyncHandler";
 import TransactionHandler from "../utils/transactionHandler";
+import { BadRequestError } from "../errors/CustomErrors";
 
 class TemplateController {
   /**
    * 템플릿 생성
    */
-  static async createTemplate(req: Request, res: Response) {
+  static createTemplate = asyncHandler(async (req: Request, res: Response) => {
     const userId = req?.user?.userId!;
 
     // 요청 데이터 검증
@@ -61,7 +62,7 @@ class TemplateController {
         });
       }
     );
-  }
+  });
 
   /**
    * 템플릿 삭제
@@ -78,11 +79,7 @@ class TemplateController {
     });
     const parsed = deleteTemplateSchema.safeParse(req.params);
     if (!parsed.success) {
-      res.status(400).json({
-        success: false,
-        message: parsed.error.message,
-      });
-      return;
+      throw new BadRequestError(parsed.error.message);
     }
 
     // 데이터 추출
@@ -92,6 +89,7 @@ class TemplateController {
     await TransactionHandler.executeInTransaction(
       dbPool,
       async (connection) => {
+        // 템플릿 삭제
         await TemplateService.deleteTemplateByUuid(
           userId,
           templateUuid,
@@ -110,7 +108,7 @@ class TemplateController {
   /**
    * 템플릿 목록 조회
    */
-  static async getTemplates(req: Request, res: Response) {
+  static getTemplates = asyncHandler(async (req: Request, res: Response) => {
     const userId = req?.user?.userId!;
 
     // 템플릿 전체 검색
@@ -131,12 +129,12 @@ class TemplateController {
       message: "템플릿 목록을 성공적으로 가져왔습니다.",
       data,
     });
-  }
+  });
 
   /**
    * UUID로 특정 템플릿 조회
    */
-  static async getTemplate(req: Request, res: Response) {
+  static getTemplate = asyncHandler(async (req: Request, res: Response) => {
     const userId = req?.user?.userId!;
 
     // 요청 데이터 추출
@@ -163,7 +161,51 @@ class TemplateController {
       message: "템플릿을 성공적으로 가져왔습니다.",
       data,
     });
-  }
+  });
+
+  /**
+   * 템플릿 수정
+   */
+  static updateTemplate = asyncHandler(async (req: Request, res: Response) => {
+    const userId = req?.user?.userId!;
+
+    // 요청 데이터 검증
+    const updateTemplateSchema = z.object({
+      title: z
+        .string()
+        .min(1, "제목은 최소 1자 이상이어야 합니다.")
+        .max(100, "제목은 최대 100자 이하이어야 합니다.")
+        .trim(),
+    });
+    const parsed = updateTemplateSchema.safeParse(req.body);
+    if (!parsed.success) {
+      throw new BadRequestError(parsed.error.message);
+    }
+
+    // 데이터 추출
+    const { title } = parsed.data;
+    const { templateUuid } = req.params;
+
+    // 트랜잭션 실행
+    await TransactionHandler.executeInTransaction(
+      dbPool,
+      async (connection) => {
+        // 템플릿 수정
+        await TemplateService.updateTemplateByUuid(
+          userId,
+          templateUuid,
+          title,
+          connection
+        );
+      }
+    );
+
+    // 응답 전송
+    res.status(200).json({
+      success: true,
+      message: "템플릿이 성공적으로 수정되었습니다.",
+    });
+  });
 }
 
 export default TemplateController;
