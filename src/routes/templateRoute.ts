@@ -18,7 +18,7 @@ const router = express.Router();
 router.use(csrfProtection);
 
 // 템플릿 목록 조회
-router.get("/", limiter, authenticateToken, getUserTemplates);
+router.get("/", limiter, authenticateToken, TemplateController.getTemplates);
 
 // 새 템플릿 생성
 router.post("/", limiter, authenticateToken, TemplateController.createTemplate);
