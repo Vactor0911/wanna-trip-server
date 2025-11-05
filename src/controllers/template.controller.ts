@@ -206,6 +206,29 @@ class TemplateController {
       message: "템플릿이 성공적으로 수정되었습니다.",
     });
   });
+
+  static getPopularTemplates = asyncHandler(
+    async (req: Request, res: Response) => {
+      // 인기 템플릿 검색
+      const templates = await TemplateService.getPopularTemplates();
+
+      // 응답 데이터 생성
+      const data = templates.map((template: any) => ({
+        templateUuid: template.template_uuid,
+        title: template.title,
+        createdAt: template.created_at,
+        updatedAt: template.updated_at,
+        sharedCount: template.shared_count,
+      }));
+
+      // 응답 전송
+      res.status(200).json({
+        success: true,
+        message: "인기 템플릿 목록을 성공적으로 가져왔습니다.",
+        data,
+      });
+    }
+  );
 }
 
 export default TemplateController;

@@ -134,6 +134,15 @@ class TemplateService {
       throw error;
     }
   }
+
+  /**
+   * 인기 템플릿 조회
+   * @returns 인기 템플릿 목록
+   */
+  static async getPopularTemplates() {
+    const templates = await TemplateModel.findPopularTemplates();
+    return templates;
+  }
 }
 
 export default TemplateService;
