@@ -5,7 +5,7 @@ import cookieParser from "cookie-parser"; // 쿠키 파싱 미들웨어 추가
 import bodyParser from "body-parser"; // 바디 파서 미들웨어 추가
 import authRoute from "./routes/authRoute";
 import csrfRoute from "./routes/csrfRoute";
-import templateRoute from "./routes/templateRoute";
+import templateRoute from "./routes/template.route";
 import boardRoute from "./routes/boardRoute";
 import cardRoute from "./routes/cardRoute";
 import helmet from "helmet"; // 보안 관련 HTTP 헤더 설정을 위한 미들웨어
