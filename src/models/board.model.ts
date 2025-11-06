@@ -1,18 +1,18 @@
 import { Pool, PoolConnection } from "mariadb";
-import { dbPool } from "../config/db";
 import { v4 as uuidv4 } from "uuid";
 
 class BoardModel {
   /**
    * 보드 생성
-   * @param params 보드 생성 인자
+   * @param templateId 템플릿 ID
+   * @param dayNumber 보드 일차
    * @param connection 데이터베이스 연결 객체
    * @returns 생성된 보드 UUID
    */
   static async create(
     templateId: string,
     dayNumber: number,
-    connection: PoolConnection
+    connection: PoolConnection | Pool
   ) {
     const boardUuid = uuidv4();
 
