@@ -24,7 +24,7 @@ boardRoute.post("/move", limiter, authenticateToken, moveBoard);
 boardRoute.post("/", limiter, authenticateToken, BoardController.createBoard);
 
 // 보드 삭제
-boardRoute.delete("/:boardId", limiter, authenticateToken, deleteBoard);
+boardRoute.delete("/:boardUuid", limiter, authenticateToken, BoardController.deleteBoard);
 
 // 보드의 모든 카드 삭제 (보드는 유지)
 boardRoute.delete("/:boardId/cards", limiter, authenticateToken, clearBoard);

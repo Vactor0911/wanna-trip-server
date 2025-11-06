@@ -138,6 +138,39 @@ class BoardService {
       throw new InternalServerError("보드 생성에 실패했습니다.");
     }
   }
+
+  /**
+   * 보드 삭제
+   * @param userId 사용자 id
+   * @param boardUuid 보드 uuid
+   * @param connection 데이터베이스 연결 객체
+   */
+  static async deleteBoard(
+    userId: string,
+    boardUuid: string,
+    connection: PoolConnection
+  ) {
+    // 보드 존재 확인
+    const board = await BoardModel.findByUuid(boardUuid);
+    if (!board) {
+      throw new NotFoundError("보드를 찾을 수 없습니다.");
+    }
+
+    // 템플릿 소유권 확인
+    const template = await BoardModel.findTemplateByUuid(boardUuid);
+    if (!template) {
+      throw new NotFoundError("템플릿을 찾을 수 없습니다.");
+    } else if (template.user_id !== userId) {
+      throw new ForbiddenError("템플릿에 대한 권한이 없습니다.");
+    }
+
+    try {
+      // 보드 삭제
+      await BoardModel.deleteByUuid(boardUuid, connection);
+    } catch (error) {
+      throw new NotFoundError("보드 삭제에 실패했습니다.");
+    }
+  }
 }
 
 export default BoardService;

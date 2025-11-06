@@ -7,11 +7,6 @@ type CreateBoardParams = {
   dayNumber: number;
 };
 
-type InsertBoardParams = {
-  boardUuid: string;
-  templateId: string;
-};
-
 class BoardModel {
   /**
    * 보드 id로 보드 조회
@@ -86,23 +81,41 @@ class BoardModel {
   }
 
   /**
-   * 보드 권한 확인
+   * 보드 id로 템플릿 조회
    * @param boardId 보드 id
-   * @param userId 사용자 id
-   * @returns 권한 확인 결과
+   * @returns 조회된 템플릿
    */
-  static async checkPermission(boardId: string, userId: string) {
-    const result = await dbPool.execute(
+  static async findTemplateById(boardId: string) {
+    const templates = await dbPool.execute(
       `
-        SELECT b.board_id
+        SELECT t.*
         FROM board b
         JOIN template t ON b.template_id = t.template_id
-        WHERE b.board_id = ? AND t.user_id = ?
-        LIMIT 1;
+        WHERE b.board_id = ?
+        LIMIT 1
       `,
-      [boardId, userId]
+      [boardId]
     );
-    return result && result.length > 0;
+    return templates && templates.length > 0 ? templates[0] : null;
+  }
+
+  /**
+   * 보드 uuid로 템플릿 조회
+   * @param boardUuid 보드 uuid
+   * @returns 조회된 템플릿
+   */
+  static async findTemplateByUuid(boardUuid: string) {
+    const templates = await dbPool.execute(
+      `
+        SELECT t.*
+        FROM board b
+        JOIN template t ON b.template_id = t.template_id
+        WHERE b.board_uuid = ?
+        LIMIT 1
+      `,
+      [boardUuid]
+    );
+    return templates && templates.length > 0 ? templates[0] : null;
   }
 
   /**

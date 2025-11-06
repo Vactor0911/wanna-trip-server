@@ -143,6 +143,34 @@ class TemplateService {
     const templates = await TemplateModel.findPopularTemplates();
     return templates;
   }
+
+  /**
+   * 사용자의 템플릿 권한 소지 여부 확인
+   * @param userId 사용자 id
+   * @param templateId 템플릿 id
+   */
+  static async checkPermissionById(userId: string, templateId: string) {
+    const template = await TemplateModel.findById(templateId);
+    if (!template) {
+      throw new NotFoundError("템플릿을 찾을 수 없습니다.");
+    } else if (template.user_id !== userId) {
+      throw new ForbiddenError("템플릿에 대한 권한이 없습니다.");
+    }
+  }
+
+  /**
+   * 사용자의 템플릿 권한 소지 여부 확인
+   * @param userId 사용자 id
+   * @param templateId 템플릿 idㄴ
+   */
+  static async checkPermissionByUuid(userId: string, templateUuid: string) {
+    const template = await TemplateModel.findByUuid(templateUuid);
+    if (!template) {
+      throw new NotFoundError("템플릿을 찾을 수 없습니다.");
+    } else if (template.user_id !== userId) {
+      throw new ForbiddenError("템플릿에 대한 권한이 없습니다.");
+    }
+  }
 }
 
 export default TemplateService;
