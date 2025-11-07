@@ -17,3 +17,10 @@ export const createBoardSchema = z.object({
 export const deleteBoardSchema = z.object({
   boardUuid: z.uuid("보드 UUID 형식이 올바르지 않습니다."),
 });
+
+/**
+ * 보드 복제 스키마
+ */
+export const copyBoardSchema = z.object({
+  boardUuid: z.uuid("보드 UUID 형식이 올바르지 않습니다."),
+});

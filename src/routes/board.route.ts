@@ -12,7 +12,11 @@ import {
 } from "../controllers/boardController";
 import BoardController from "../controllers/board.controller";
 import { validateBody, validateParams } from "../middleware/validation";
-import { createBoardSchema, deleteBoardSchema } from "../schema/board.schema";
+import {
+  copyBoardSchema,
+  createBoardSchema,
+  deleteBoardSchema,
+} from "../schema/board.schema";
 
 const boardRoute = express.Router();
 
@@ -20,7 +24,7 @@ const boardRoute = express.Router();
 boardRoute.use(csrfProtection);
 
 // 보드 이동
-boardRoute.post("/move", limiter, authenticateToken, moveBoard);
+// boardRoute.post("/move", limiter, authenticateToken, moveBoard);
 
 // 보드 생성 및 삽입
 boardRoute.post(
@@ -40,24 +44,22 @@ boardRoute.delete(
   BoardController.deleteBoard
 );
 
-// 보드의 모든 카드 삭제 (보드는 유지)
-boardRoute.delete("/:boardId/cards", limiter, authenticateToken, clearBoard);
-
 // 보드 복제 (특정 보드 바로 뒤에 복제)
 boardRoute.post(
-  "/duplicate/:boardId",
+  "/copy/:boardUuid",
   limiter,
   authenticateToken,
-  duplicateBoard
+  validateParams(copyBoardSchema),
+  BoardController.copyBoard
 );
 
 // 보드 내 카드 정렬
-boardRoute.post(
-  "/:boardId/sort",
-  limiter,
-  authenticateToken,
-  csrfProtection,
-  sortBoardCards
-);
+// boardRoute.post(
+//   "/:boardId/sort",
+//   limiter,
+//   authenticateToken,
+//   csrfProtection,
+//   sortBoardCards
+// );
 
 export default boardRoute;

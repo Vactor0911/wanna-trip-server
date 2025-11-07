@@ -39,6 +39,23 @@ class BoardController {
       message: "보드가 성공적으로 삭제되었습니다.",
     });
   });
+
+  /**
+   * 보드 복제
+   */
+  static copyBoard = asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user?.userId;
+    const { boardUuid } = req.params;
+
+    // 보드 복제
+    const newBoardUuid = await BoardService.copyBoard(userId, boardUuid);
+
+    // 응답 반환
+    res.status(201).json({
+      message: "보드가 성공적으로 복제되었습니다.",
+      boardUuid: newBoardUuid,
+    });
+  });
 }
 
 export default BoardController;

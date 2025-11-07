@@ -36,7 +36,7 @@ class BoardService {
         const boardUuid = await BoardModel.create(
           template.template_id,
           dayNumber,
-          dbPool
+          connection
         );
 
         // 생성된 보드 UUID 반환
@@ -68,6 +68,40 @@ class BoardService {
 
         // 보드 삭제
         await BoardModel.delete(boardUuid, connection);
+      }
+    );
+  }
+
+  /**
+   * 보드 복제
+   * @param userId 사용자 id
+   * @param boardUuid 보드 uuid
+   */
+  static async copyBoard(userId: string, boardUuid: string) {
+    await TransactionHandler.executeInTransaction(
+      dbPool,
+      async (connection) => {
+        // 보드 조회
+        const board = await BoardModel.findByUuid(boardUuid, connection);
+        if (!board) {
+          throw new NotFoundError("보드를 찾을 수 없습니다.");
+        }
+
+        // 템플릿 수정 권한 확인
+        await TemplateService.validateTemplatePermissionById(
+          userId,
+          board.template_id
+        );
+
+        // 보드 복제
+        const newBoardUuid = await BoardModel.create(
+          board.template_id,
+          board.day_number + 1,
+          connection
+        );
+
+        // 생성된 보드 UUID 반환
+        return newBoardUuid;
       }
     );
   }
