@@ -1,138 +1,111 @@
-import { PoolConnection } from "mariadb";
+import { dbPool } from "../config/db";
+import { ForbiddenError } from "../errors/CustomErrors";
+import BoardModel from "../models/board.model";
 import TemplateModel from "../models/template.model";
-import { ForbiddenError, NotFoundError } from "../errors/CustomErrors";
+import TransactionHandler from "../utils/transactionHandler";
 
 class TemplateService {
   /**
-   * 템플릿 id로 템플릿 조회
-   * @param userId 사용자 id
-   * @param templateId 템플릿 id
-   * @returns 조회된 템플릿
-   */
-  static async getTemplateById(userId: string, templateId: string) {
-    const template = await TemplateModel.findById(templateId);
-    if (!template) {
-      throw new NotFoundError("템플릿을 찾을 수 없습니다.");
-    } else if (template.user_id !== userId) {
-      throw new ForbiddenError("템플릿에 대한 권한이 없습니다.");
-    }
-    return template;
-  }
-
-  /**
-   * 템플릿 uuid로 템플릿 조회
-   * @param userId 사용자 id
-   * @param templateUuid 템플릿 id
-   * @returns 조회된 템플릿
-   */
-  static async getTemplateByUuid(userId: string, templateUuid: string) {
-    const template = await TemplateModel.findByUuid(templateUuid);
-    if (!template) {
-      throw new NotFoundError("템플릿을 찾을 수 없습니다.");
-    } else if (template.user_id !== userId) {
-      throw new ForbiddenError("템플릿에 대한 권한이 없습니다.");
-    }
-    return template;
-  }
-
-  static async getTemplatesByUserId(userId: string) {
-    const templates = await TemplateModel.findAllByUserId(userId);
-    if (!templates) {
-      throw new NotFoundError("템플릿을 찾을 수 없습니다.");
-    }
-    return templates;
-  }
-
-  /**
    * 템플릿 생성
-   * @param templateUuid 템플릿 uuid
    * @param userId 사용자 id
    * @param title 제목
-   * @param connection 데이터베이스 연결 객체
-   * @returns 생성 결과
    */
-  static async createTemplate(
-    templateUuid: string,
-    userId: string,
-    title: string,
-    connection: PoolConnection
-  ) {
-    // 템플릿 생성
-    try {
-      const params = {
-        templateUuid,
-        userId,
-        title,
-      };
-      const result = await TemplateModel.create(params, connection);
-      return result;
-    } catch (error) {
-      throw error;
-    }
+  static async createTemplate(userId: string, title: string) {
+    await TransactionHandler.executeInTransaction(
+      dbPool,
+      async (connection) => {
+        // 템플릿 생성
+        const templateUuid = await TemplateModel.create(
+          userId,
+          title,
+          connection
+        );
+
+        // 템플릿 조회
+        const template = await TemplateModel.findByUuid(
+          templateUuid,
+          connection
+        );
+
+        // 기본 보드 생성
+        const boardUuid = await BoardModel.create(
+          template.template_id,
+          1,
+          connection
+        );
+        return templateUuid;
+      }
+    );
   }
 
   /**
    * 템플릿 삭제
    * @param userId 사용자 id
    * @param templateUuid 템플릿 uuid
-   * @param connection 데이터베이스 연결 객체
-   * @returns 삭제 결과
    */
-  static async deleteTemplateByUuid(
-    userId: string,
-    templateUuid: string,
-    connection: PoolConnection
-  ) {
-    // 템플릿 소유권 확인
-    const template = await TemplateModel.findByUuid(templateUuid);
-    if (!template) {
-      throw new NotFoundError("템플릿을 찾을 수 없습니다.");
-    } else if (template.user_id !== userId) {
-      throw new ForbiddenError("템플릿에 대한 권한이 없습니다.");
-    }
+  static async deleteTemplate(userId: string, templateUuid: string) {
+    await TransactionHandler.executeInTransaction(
+      dbPool,
+      async (connection) => {
+        // 템플릿 수정 권한 확인
+        await this.validateTemplatePermissionByUuid(userId, templateUuid);
 
-    // 템플릿 삭제
-    try {
-      const result = await TemplateModel.deleteByUuid(templateUuid, connection);
-      return result;
-    } catch (error) {
-      throw error;
-    }
+        // 템플릿 삭제
+        await TemplateModel.deleteByUuid(templateUuid, connection);
+      }
+    );
   }
 
   /**
-   * 템플릿 수정
+   * 사용자 id로 템플릿 목록 조회
+   * @param userId 사용자 id
+   * @returns 템플릿 목록
+   */
+  static async getTemplatesByUserId(userId: string) {
+    // 템플릿 조회
+    const templates = await TemplateModel.findAllByUserId(userId, dbPool);
+
+    // 템플릿 반환
+    const formattedTemplates = templates.map((template: any) =>
+      this.formatTemplate(template)
+    );
+    return formattedTemplates;
+  }
+
+  /**
+   * 템플릿 uuid로 템플릿 조회
    * @param userId 사용자 id
    * @param templateUuid 템플릿 uuid
-   * @param title 제목
-   * @param connection 데이터베이스 연결 객체
-   * @returns 수정 결과
+   * @returns 조회된 템플릿
+   */
+  static async getTemplateByUuid(userId: string, templateUuid: string) {
+    // 템플릿 수정 권한 확인
+    await this.validateTemplatePermissionByUuid(userId, templateUuid);
+
+    // 템플릿 조회
+    const template = await TemplateModel.findByUuid(templateUuid, dbPool);
+
+    // 템플릿 반환
+    const formattedTemplates = this.formatTemplate(template);
+    return formattedTemplates;
+  }
+
+  /**
+   * 템플릿 uuid로 템플릿 수정
+   * @param userId 사용자 id
+   * @param templateUuid 템플릿 uuid
+   * @param title 템플릿 제목
    */
   static async updateTemplateByUuid(
     userId: string,
     templateUuid: string,
-    title: string,
-    connection: PoolConnection
+    title: string
   ) {
-    // 템플릿 소유권 확인
-    const template = await TemplateModel.findByUuid(templateUuid);
-    if (!template) {
-      throw new NotFoundError("템플릿을 찾을 수 없습니다.");
-    } else if (template.user_id !== userId) {
-      throw new ForbiddenError("템플릿에 대한 권한이 없습니다.");
-    }
+    // 템플릿 수정 권한 확인
+    await this.validateTemplatePermissionByUuid(userId, templateUuid);
 
     // 템플릿 수정
-    try {
-      const result = await TemplateModel.updateTitleById(
-        template.template_id.toString(),
-        title,
-        connection
-      );
-      return result;
-    } catch (error) {
-      throw error;
-    }
+    await TemplateModel.updateByUuid(templateUuid, title, dbPool);
   }
 
   /**
@@ -140,8 +113,59 @@ class TemplateService {
    * @returns 인기 템플릿 목록
    */
   static async getPopularTemplates() {
-    const templates = await TemplateModel.findPopularTemplates();
-    return templates;
+    // 인기 템플릿 조회
+    const templates = await TemplateModel.findPopularTemplates(dbPool);
+
+    // 템플릿 반환
+    const formattedTemplates = templates.map((template: any) =>
+      this.formatTemplate(template)
+    );
+    return formattedTemplates;
+  }
+
+  /**
+   * 템플릿 id로 수정 권한 검증
+   * @param userId 사용자 id
+   * @param templateId 템플릿 id
+   */
+  static async validateTemplatePermissionById(
+    userId: string,
+    templateId: string
+  ) {
+    const template = await TemplateModel.findById(templateId, dbPool);
+    if (!template || template.user_id !== userId) {
+      throw new ForbiddenError("템플릿 수정 권한이 없습니다.");
+    }
+  }
+
+  /**
+   * 템플릿 uuid로 수정 권한 검증
+   * @param userId 사용자 id
+   * @param templateUuid 템플릿 uuid
+   */
+  static async validateTemplatePermissionByUuid(
+    userId: string,
+    templateUuid: string
+  ) {
+    const template = await TemplateModel.findByUuid(templateUuid, dbPool);
+    if (!template || template.user_id !== userId) {
+      throw new ForbiddenError("템플릿 수정 권한이 없습니다.");
+    }
+  }
+
+  /**
+   * 템플릿 객체 포맷팅
+   * @param template 템플릿 객체
+   * @returns 포맷팅된 템플릿 객체
+   */
+  static formatTemplate(template: any) {
+    return {
+      uuid: template.template_uuid,
+      title: template.title,
+      createdAt: template.created_at,
+      updatedAt: template.updated_at,
+      sharedCount: template.shared_count,
+    };
   }
 }
 
