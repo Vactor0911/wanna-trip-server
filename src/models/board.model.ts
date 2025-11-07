@@ -38,6 +38,43 @@ class BoardModel {
     // 생성된 보드 UUID 반환
     return boardUuid;
   }
+
+  /**
+   * 보드 uuid로 보드 조회
+   * @param boardUuid 보드 uuid
+   * @param connection 데이터베이스 연결 객체
+   * @returns 조회된 보드
+   */
+  static async findByUuid(
+    boardUuid: string,
+    connection: PoolConnection | Pool
+  ) {
+    const [board] = await connection.query(
+      `
+        SELECT *
+        FROM board
+        WHERE board_uuid = ?;
+      `,
+      [boardUuid]
+    );
+    return board;
+  }
+
+  /**
+   * 보드 삭제
+   * @param boardUuid 보드 uuid
+   * @param connection 데이터베이스 연결 객체
+   */
+  static async delete(boardUuid: string, connection: PoolConnection | Pool) {
+    // 보드 삭제
+    await connection.execute(
+      `
+        DELETE FROM board
+        WHERE board_uuid = ?;
+      `,
+      [boardUuid]
+    );
+  }
 }
 
 export default BoardModel;
