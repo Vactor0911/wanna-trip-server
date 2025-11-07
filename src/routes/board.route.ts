@@ -1,21 +1,13 @@
 import express from "express";
 import { authenticateToken } from "../middleware/authenticate";
 import { csrfProtection, limiter } from "../utils";
-import {
-  createBoard,
-  deleteBoard,
-  duplicateBoard,
-  createBoardAfter,
-  clearBoard,
-  moveBoard,
-  sortBoardCards,
-} from "../controllers/boardController";
 import BoardController from "../controllers/board.controller";
 import { validateBody, validateParams } from "../middleware/validation";
 import {
   copyBoardSchema,
   createBoardSchema,
   deleteBoardSchema,
+  moveBoardSchema,
 } from "../schema/board.schema";
 
 const boardRoute = express.Router();
@@ -23,16 +15,22 @@ const boardRoute = express.Router();
 // CSRF 보호 미들웨어 적용
 boardRoute.use(csrfProtection);
 
-// 보드 이동
-// boardRoute.post("/move", limiter, authenticateToken, moveBoard);
-
-// 보드 생성 및 삽입
+// 보드 복제 (특정 보드 바로 뒤에 복제)
 boardRoute.post(
-  "/",
+  "/copy/:boardUuid",
   limiter,
   authenticateToken,
-  validateBody(createBoardSchema),
-  BoardController.createBoard
+  validateParams(copyBoardSchema),
+  BoardController.copyBoard
+);
+
+// 보드 이동
+boardRoute.post(
+  "/move",
+  limiter,
+  authenticateToken,
+  validateBody(moveBoardSchema),
+  BoardController.moveBoard
 );
 
 // 보드 삭제
@@ -44,13 +42,13 @@ boardRoute.delete(
   BoardController.deleteBoard
 );
 
-// 보드 복제 (특정 보드 바로 뒤에 복제)
+// 보드 생성 및 삽입
 boardRoute.post(
-  "/copy/:boardUuid",
+  "/",
   limiter,
   authenticateToken,
-  validateParams(copyBoardSchema),
-  BoardController.copyBoard
+  validateBody(createBoardSchema),
+  BoardController.createBoard
 );
 
 // 보드 내 카드 정렬

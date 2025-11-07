@@ -56,6 +56,22 @@ class BoardController {
       boardUuid: newBoardUuid,
     });
   });
+
+  /**
+   * 보드 이동
+   */
+  static moveBoard = asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user?.userId;
+    const { boardUuid, dayNumber } = req.body;
+
+    // 보드 이동
+    await BoardService.moveBoard(userId, boardUuid, dayNumber);
+
+    // 응답 반환
+    res.status(200).json({
+      message: "보드가 성공적으로 이동되었습니다.",
+    });
+  });
 }
 
 export default BoardController;

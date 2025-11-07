@@ -75,6 +75,42 @@ class BoardModel {
       [boardUuid]
     );
   }
+
+  /**
+   * 보드 이동
+   * @param boardUuid 보드 uuid
+   * @param dayNumber 이동할 일차
+   * @param connection 데이터베이스 연결 객체
+   */
+  static async move(
+    boardUuid: string,
+    dayNumber: number,
+    connection: PoolConnection | Pool
+  ) {
+    // 보드 일차 조정
+    await connection.execute(
+      `
+        UPDATE board
+        SET day_number = day_number + 1
+        WHERE day_number >= ? AND template_id = (
+          SELECT template_id
+          FROM board
+          WHERE board_uuid = ?
+        )
+      `,
+      [dayNumber, boardUuid]
+    );
+
+    // 보드 이동
+    await connection.execute(
+      `
+        UPDATE board
+        SET day_number = ?
+        WHERE board_uuid = ?;
+      `,
+      [dayNumber, boardUuid]
+    );
+  }
 }
 
 export default BoardModel;
