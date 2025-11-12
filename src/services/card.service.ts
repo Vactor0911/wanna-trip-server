@@ -8,7 +8,7 @@ import TemplateService from "./template.service";
 
 class CardService {
   /**
-   *
+   * 카드 생성
    * @param userId 사용자 id
    * @param boardUuid 보드 uuid
    * @param index 카드 인덱스
@@ -44,6 +44,42 @@ class CardService {
           connection
         );
         return cardUuid;
+      }
+    );
+  }
+
+  /**
+   * 카드 삭제
+   * @param userId 사용자 id
+   * @param cardUuid 카드 uuid
+   */
+  static async deleteCard(userId: string, cardUuid: string) {
+    await TransactionHandler.executeInTransaction(
+      dbPool,
+      async (connection) => {
+        // 카드 조회
+        const card = await CardModel.findByUuid(cardUuid, connection);
+        if (!card) {
+          throw new NotFoundError("카드를 찾을 수 없습니다.");
+        }
+
+        // 템플릿 조회
+        const template = await CardModel.findTemplateByCardId(
+          card.card_id,
+          connection
+        );
+        if (!template) {
+          throw new NotFoundError("템플릿을 찾을 수 없습니다.");
+        }
+
+        // 템플릿 수정 권한 확인
+        await TemplateService.validateTemplatePermissionById(
+          userId,
+          template.template_id
+        );
+
+        // 카드 삭제
+        await CardModel.deleteByUuid(cardUuid, connection);
       }
     );
   }

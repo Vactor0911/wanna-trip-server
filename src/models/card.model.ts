@@ -46,6 +46,66 @@ class CardModel {
     // 생성된 카드 uuid 반환
     return cardUuid;
   }
+
+  /**
+   * 카드 uuid로 카드 조회
+   * @param cardUuid 카드 uuid
+   * @param connection 데이터베이스 연결 객체
+   * @returns 조회된 카드
+   */
+  static async findByUuid(cardUuid: string, connection: PoolConnection | Pool) {
+    const [card] = await connection.execute(
+      `
+        SELECT *
+        FROM card
+        WHERE card_uuid = ?
+      `,
+      [cardUuid]
+    );
+    return card;
+  }
+
+  /**
+   * 카드 id로 템플릿 조회
+   * @param cardId 카드 id
+   * @param connection 데이터베이스 연결 객체
+   * @returns 조회된 템플릿
+   */
+  static async findTemplateByCardId(
+    cardId: string,
+    connection: PoolConnection | Pool
+  ) {
+    const [template] = await connection.execute(
+      `
+        SELECT t.*
+        FROM template t
+        JOIN board b ON t.template_id = b.template_id
+        JOIN card c ON b.board_id = c.board_id
+        WHERE c.card_id = ?
+      `,
+      [cardId]
+    );
+    return template;
+  }
+
+  /**
+   * 카드 uuid로 카드 삭제
+   * @param cardUuid 카드 uuid
+   * @param connection 데이터베이스 연결 객체
+   */
+  static async deleteByUuid(
+    cardUuid: string,
+    connection: PoolConnection | Pool
+  ) {
+    // 카드 삭제
+    await connection.execute(
+      `
+        DELETE FROM card
+        WHERE card_uuid = ?;
+      `,
+      [cardUuid]
+    );
+  }
 }
 
 export default CardModel;

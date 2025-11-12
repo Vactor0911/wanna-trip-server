@@ -8,8 +8,8 @@ import {
   moveCard,
   getLocationByCardId,
 } from "../controllers/cardController";
-import { validateBody } from "../middleware/validation";
-import { createCardSchema } from "../schema/card.schema";
+import { validateBody, validateParams } from "../middleware/validation";
+import { createCardSchema, deleteCardSchema } from "../schema/card.schema";
 import CardController from "../controllers/card.controller";
 
 const router = express.Router();
@@ -30,7 +30,13 @@ router.post(
 router.put("/:cardId", limiter, authenticateToken, updateCard);
 
 // 카드 삭제
-router.delete("/:cardId", limiter, authenticateToken, deleteCard);
+router.delete(
+  "/:cardUuid",
+  limiter,
+  authenticateToken,
+  validateParams(deleteCardSchema),
+  CardController.deleteCard
+);
 
 // 카드 이동
 router.post("/move", limiter, authenticateToken, moveCard);

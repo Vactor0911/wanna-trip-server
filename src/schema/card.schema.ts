@@ -13,3 +13,10 @@ export const createCardSchema = z.object({
     message: "유효한 날짜 형식이어야 합니다.",
   }),
 });
+
+/**
+ * 카드 삭제 스키마
+ */
+export const deleteCardSchema = z.object({
+  cardUuid: z.uuid("카드 UUID 형식이 올바르지 않습니다."),
+});

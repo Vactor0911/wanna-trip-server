@@ -25,6 +25,22 @@ class CardController {
       cardUuid,
     });
   });
+
+  /**
+   * 카드 삭제
+   */
+  static deleteCard = asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user?.userId;
+    const { cardUuid } = req.params;
+
+    // 카드 삭제
+    await CardService.deleteCard(userId, cardUuid);
+
+    // 응답 반환
+    res.status(200).json({
+      message: "카드가 성공적으로 삭제되었습니다.",
+    });
+  });
 }
 
 export default CardController;
