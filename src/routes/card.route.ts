@@ -10,6 +10,7 @@ import {
 } from "../controllers/cardController";
 import { validateBody } from "../middleware/validation";
 import { createCardSchema } from "../schema/card.schema";
+import CardController from "../controllers/card.controller";
 
 const router = express.Router();
 
@@ -18,11 +19,11 @@ router.use(csrfProtection);
 
 // 새 카드 생성 및 복제
 router.post(
-  "/add/:boardId/:index?",
+  "/",
   limiter,
   authenticateToken,
   validateBody(createCardSchema),
-  addCard
+  CardController.createCard
 );
 
 // 카드 수정 (텍스트 에디터 내용 업데이트 포함)

@@ -1,3 +1,4 @@
+import { Dayjs, isDayjs } from "dayjs";
 import { dbPool } from "../config/db";
 import { NotFoundError } from "../errors/CustomErrors";
 import BoardModel from "../models/board.model";
@@ -6,7 +7,20 @@ import TransactionHandler from "../utils/transactionHandler";
 import TemplateService from "./template.service";
 
 class CardService {
-  static async createCard(userId: string, boardUuid: string, index: number) {
+  /**
+   *
+   * @param userId 사용자 id
+   * @param boardUuid 보드 uuid
+   * @param index 카드 인덱스
+   * @param startTime 시작 시간
+   * @return 생성된 카드 uuid
+   */
+  static async createCard(
+    userId: string,
+    boardUuid: string,
+    index: number,
+    startTime: Dayjs
+  ) {
     await TransactionHandler.executeInTransaction(
       dbPool,
       async (connection) => {
@@ -22,15 +36,14 @@ class CardService {
           board.template_id
         );
 
-        // 보드 조회
-
         // 카드 생성
         const cardUuid = await CardModel.create(
-          templateUuid,
-          boardUuid,
+          board.board_id,
           index,
+          startTime,
           connection
         );
+        return cardUuid;
       }
     );
   }
