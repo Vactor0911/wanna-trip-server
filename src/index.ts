@@ -3,17 +3,19 @@ import cors from "cors";
 import dotenv from "dotenv"; // 환경 변수 사용한 민감한 정보 관리
 import cookieParser from "cookie-parser"; // 쿠키 파싱 미들웨어 추가
 import bodyParser from "body-parser"; // 바디 파서 미들웨어 추가
-import authRoute from "./routes/authRoute";
-import csrfRoute from "./routes/csrfRoute";
-import templateRoute from "./routes/template.route";
-import boardRoute from "./routes/board.route";
-import cardRoute from "./routes/cardRoute";
 import helmet from "helmet"; // 보안 관련 HTTP 헤더 설정을 위한 미들웨어
 import { csrfTokenMiddleware } from "./utils";
 import path from "path";
-import searchRoute from "./routes/searchRoute";
-import postRoute from "./routes/postRoute";
 import { errorHandler } from "./middleware/errorHandler";
+import {
+  authRoute,
+  boardRoute,
+  cardRoute,
+  csrfRoute,
+  postRoute,
+  searchRoute,
+  templateRoute,
+} from "./routes";
 
 // .env 파일 로드
 dotenv.config();

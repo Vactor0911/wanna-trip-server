@@ -1,4 +1,5 @@
 import { dbPool } from "../config/db";
+import { NotFoundError } from "../errors/CustomErrors";
 import BoardModel from "../models/board.model";
 import TemplateModel from "../models/template.model";
 import TransactionHandler from "../utils/transactionHandler";
@@ -35,11 +36,99 @@ class BoardService {
         const boardUuid = await BoardModel.create(
           template.template_id,
           dayNumber,
-          dbPool
+          connection
         );
 
         // 생성된 보드 UUID 반환
         return boardUuid;
+      }
+    );
+  }
+
+  /**
+   * 보드 삭제
+   * @param userId 사용자 id
+   * @param boardUuid 보드 uuid
+   */
+  static async deleteBoard(userId: string, boardUuid: string) {
+    await TransactionHandler.executeInTransaction(
+      dbPool,
+      async (connection) => {
+        // 보드 조회
+        const board = await BoardModel.findByUuid(boardUuid, connection);
+        if (!board) {
+          throw new NotFoundError("보드를 찾을 수 없습니다.");
+        }
+
+        // 템플릿 수정 권한 확인
+        await TemplateService.validateTemplatePermissionById(
+          userId,
+          board.template_id
+        );
+
+        // 보드 삭제
+        await BoardModel.delete(boardUuid, connection);
+      }
+    );
+  }
+
+  /**
+   * 보드 복제
+   * @param userId 사용자 id
+   * @param boardUuid 보드 uuid
+   */
+  static async copyBoard(userId: string, boardUuid: string) {
+    await TransactionHandler.executeInTransaction(
+      dbPool,
+      async (connection) => {
+        // 보드 조회
+        const board = await BoardModel.findByUuid(boardUuid, connection);
+        if (!board) {
+          throw new NotFoundError("보드를 찾을 수 없습니다.");
+        }
+
+        // 템플릿 수정 권한 확인
+        await TemplateService.validateTemplatePermissionById(
+          userId,
+          board.template_id
+        );
+
+        // 보드 복제
+        const newBoardUuid = await BoardModel.copy(
+          board.board_id,
+          connection
+        );
+
+        // 생성된 보드 UUID 반환
+        return newBoardUuid;
+      }
+    );
+  }
+
+  /**
+   * 보드 이동
+   * @param userId 사용자 id
+   * @param boardUuid 보드 uuid
+   * @param dayNumber 이동할 일차
+   */
+  static async moveBoard(userId: string, boardUuid: string, dayNumber: number) {
+    await TransactionHandler.executeInTransaction(
+      dbPool,
+      async (connection) => {
+        // 보드 조회
+        const board = await BoardModel.findByUuid(boardUuid, connection);
+        if (!board) {
+          throw new NotFoundError("보드를 찾을 수 없습니다.");
+        }
+
+        // 템플릿 수정 권한 확인
+        await TemplateService.validateTemplatePermissionById(
+          userId,
+          board.template_id
+        );
+
+        // 보드 이동
+        await BoardModel.move(boardUuid, dayNumber, connection);
       }
     );
   }

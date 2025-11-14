@@ -1,13 +1,15 @@
+import { Pool, PoolConnection } from "mariadb";
 import { dbPool } from "../config/db";
 
 class LocationModel {
   /**
    * 위치 id로 위치 정보 조회
    * @param locationId 위치 id
+   * @param connection 데이터베이스 연결 객체
    * @returns 조회된 위치 정보
    */
-  static async findById(locationId: string) {
-    const locations = await dbPool.execute(
+  static async findById(locationId: string, connection: PoolConnection | Pool) {
+    const locations = await connection.execute(
       `
         SELECT * FROM location
         WHERE location_id = ?
@@ -21,10 +23,11 @@ class LocationModel {
   /**
    * 카드 id로 위치 정보 조회
    * @param cardId 카드 id
+   * @param connection 데이터베이스 연결 객체
    * @returns 조회된 위치 정보
    */
-  static async findByCardId(cardId: string) {
-    const locations = await dbPool.execute(
+  static async findByCardId(cardId: string, connection: PoolConnection | Pool) {
+    const locations = await connection.execute(
       `
         SELECT * FROM location
         WHERE card_id = ?
