@@ -140,6 +140,84 @@ class CardModel {
       ]
     );
   }
+
+  /**
+   * 카드 이동
+   * @param cardId 카드 id
+   * @param boardId 보드 id
+   * @param orderIndex 카드 인덱스
+   * @param connection 데이터베이스 연결 객체
+   */
+  static async moveCard(
+    cardId: string,
+    boardId: string,
+    orderIndex: number,
+    connection: PoolConnection | Pool
+  ) {
+    // 기존 카드 정보 조회
+    const [card] = await connection.execute(
+      `
+        SELECT board_id, order_index
+        FROM card
+        WHERE card_id = ?;
+      `,
+      [cardId]
+    );
+
+    // 카드 인덱스 조정
+    if (card.board_id === boardId) {
+      // 같은 보드 내 이동
+      if (card.order_index < orderIndex) {
+        // 아래로 이동
+        connection.execute(
+          `
+            UPDATE card
+            SET order_index = order_index - 1
+            WHERE board_id = ? AND order_index > ? AND order_index <= ?;
+          `,
+          [boardId, card.order_index, orderIndex]
+        );
+      } else {
+        // 위로 이동
+        connection.execute(
+          `
+            UPDATE card
+            SET order_index = order_index + 1
+            WHERE board_id = ? AND order_index >= ? AND order_index < ?;
+          `,
+          [boardId, orderIndex, card.order_index]
+        );
+      }
+    } else {
+      // 다른 보드로 이동
+      connection.execute(
+        `
+          UPDATE card
+          SET order_index = order_index + 1
+          WHERE board_id = ? AND order_index >= ?;
+        `,
+        [boardId, orderIndex]
+      );
+      connection.execute(
+        `
+          UPDATE card
+          SET order_index = order_index - 1
+          WHERE board_id = ? AND order_index > ?;
+        `,
+        [card.board_id, card.order_index]
+      );
+    }
+
+    // 카드 이동
+    await connection.execute(
+      `
+        UPDATE card
+        SET board_id = ?, order_index = ?
+        WHERE card_id = ?;
+      `,
+      [boardId, orderIndex, cardId]
+    );
+  }
 }
 
 export default CardModel;

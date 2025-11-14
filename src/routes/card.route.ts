@@ -12,6 +12,7 @@ import { validateBody, validateParams } from "../middleware/validation";
 import {
   createCardSchema,
   deleteCardSchema,
+  moveCardSchema,
   updateCardBodySchema,
   updateCardParamsSchema,
 } from "../schema/card.schema";
@@ -51,7 +52,13 @@ router.delete(
 );
 
 // 카드 이동
-router.post("/move", limiter, authenticateToken, moveCard);
+router.post(
+  "/move",
+  limiter,
+  authenticateToken,
+  validateBody(moveCardSchema),
+  CardController.moveCard
+);
 
 // 카드 ID로 위치 정보 조회
 router.get(

@@ -40,3 +40,14 @@ export const updateCardBodySchema = z.object({
     .min(1, "순서 인덱스는 최소 1 이상이어야 합니다."),
   locked: z.boolean("잠금 상태는 boolean값이어야 합니다."),
 });
+
+/**
+ * 카드 이동 스키마
+ */
+export const moveCardSchema = z.object({
+  cardUuid: z.uuid("카드 UUID 형식이 올바르지 않습니다."),
+  boardUuid: z.uuid("보드 UUID 형식이 올바르지 않습니다."),
+  orderIndex: z
+    .number("순서 인덱스는 숫자여야 합니다.")
+    .min(1, "순서 인덱스는 최소 1 이상이어야 합니다."),
+});

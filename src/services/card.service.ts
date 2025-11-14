@@ -130,6 +130,60 @@ class CardService {
       }
     );
   }
+
+  /**
+   * 카드 이동
+   * @param userId 사용자 id
+   * @param cardUuid 카드 uuid
+   * @param boardUuid 보드 uuid
+   * @param orderIndex 카드 인덱스
+   */
+  static async moveCard(
+    userId: string,
+    cardUuid: string,
+    boardUuid: string,
+    orderIndex: number
+  ) {
+    await TransactionHandler.executeInTransaction(
+      dbPool,
+      async (connection) => {
+        // 카드 조회
+        const card = await CardModel.findByUuid(cardUuid, connection);
+        if (!card) {
+          throw new NotFoundError("카드를 찾을 수 없습니다.");
+        }
+
+        // 보드 조회
+        const board = await BoardModel.findByUuid(boardUuid, connection);
+        if (!board) {
+          throw new NotFoundError("보드를 찾을 수 없습니다.");
+        }
+
+        // 템플릿 조회
+        const template = await CardModel.findTemplateByCardId(
+          card.card_id,
+          connection
+        );
+        if (!template) {
+          throw new NotFoundError("템플릿을 찾을 수 없습니다.");
+        }
+
+        // 템플릿 수정 권한 확인
+        await TemplateService.validateTemplatePermissionById(
+          userId,
+          template.template_id
+        );
+
+        // 카드 이동
+        await CardModel.moveCard(
+          card.card_id,
+          board.board_id,
+          orderIndex,
+          connection
+        );
+      }
+    );
+  }
 }
 
 export default CardService;

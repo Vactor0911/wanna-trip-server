@@ -64,6 +64,22 @@ class CardController {
       message: "카드가 성공적으로 수정되었습니다.",
     });
   });
+
+  /**
+   * 카드 이동
+   */
+  static moveCard = asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user?.userId;
+    const { cardUuid, boardUuid, orderIndex } = req.body;
+
+    // 카드 이동
+    await CardService.moveCard(userId, cardUuid, boardUuid, orderIndex);
+
+    // 응답 반환
+    res.status(200).json({
+      message: "카드가 성공적으로 이동되었습니다.",
+    });
+  });
 }
 
 export default CardController;
