@@ -41,6 +41,29 @@ class CardController {
       message: "카드가 성공적으로 삭제되었습니다.",
     });
   });
+
+  /**
+   * 카드 수정
+   */
+  static updateCard = asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user?.userId;
+    const { cardUuid } = req.params;
+    const { content, startTime, endTime, orderIndex, locked } = req.body;
+
+    // 카드 수정
+    await CardService.updateCard(userId, cardUuid, {
+      content,
+      startTime: dayjs(startTime),
+      endTime: dayjs(endTime),
+      orderIndex,
+      locked,
+    });
+
+    // 응답 반환
+    res.status(200).json({
+      message: "카드가 성공적으로 수정되었습니다.",
+    });
+  });
 }
 
 export default CardController;

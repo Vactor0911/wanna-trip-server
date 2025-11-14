@@ -83,6 +83,53 @@ class CardService {
       }
     );
   }
+
+  /**
+   * 카드 수정
+   * @param userId 사용자 id
+   * @param cardUuid 카드 uuid
+   * @param data 수정할 데이터
+   */
+  static async updateCard(
+    userId: string,
+    cardUuid: string,
+    data: {
+      content: string;
+      startTime: Dayjs;
+      endTime: Dayjs;
+      orderIndex: number;
+      locked: boolean;
+    }
+  ) {
+    await TransactionHandler.executeInTransaction(
+      dbPool,
+      async (connection) => {
+        // 카드 조회
+        const card = await CardModel.findByUuid(cardUuid, connection);
+        if (!card) {
+          throw new NotFoundError("카드를 찾을 수 없습니다.");
+        }
+
+        // 템플릿 조회
+        const template = await CardModel.findTemplateByCardId(
+          card.card_id,
+          connection
+        );
+        if (!template) {
+          throw new NotFoundError("템플릿을 찾을 수 없습니다.");
+        }
+
+        // 템플릿 수정 권한 확인
+        await TemplateService.validateTemplatePermissionById(
+          userId,
+          template.template_id
+        );
+
+        // 카드 수정
+        await CardModel.update(card.card_id, data, connection);
+      }
+    );
+  }
 }
 
 export default CardService;

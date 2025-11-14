@@ -9,7 +9,12 @@ import {
   getLocationByCardId,
 } from "../controllers/cardController";
 import { validateBody, validateParams } from "../middleware/validation";
-import { createCardSchema, deleteCardSchema } from "../schema/card.schema";
+import {
+  createCardSchema,
+  deleteCardSchema,
+  updateCardBodySchema,
+  updateCardParamsSchema,
+} from "../schema/card.schema";
 import CardController from "../controllers/card.controller";
 
 const router = express.Router();
@@ -27,7 +32,14 @@ router.post(
 );
 
 // 카드 수정 (텍스트 에디터 내용 업데이트 포함)
-router.put("/:cardId", limiter, authenticateToken, updateCard);
+router.put(
+  "/:cardUuid",
+  limiter,
+  authenticateToken,
+  validateParams(updateCardParamsSchema),
+  validateBody(updateCardBodySchema),
+  CardController.updateCard
+);
 
 // 카드 삭제
 router.delete(

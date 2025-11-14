@@ -106,6 +106,40 @@ class CardModel {
       [cardUuid]
     );
   }
+
+  /**
+   * 카드 수정
+   * @param cardId 카드 id
+   * @param data 수정할 데이터
+   * @param connection 데이터베이스 연결 객체
+   */
+  static async update(
+    cardId: string,
+    data: {
+      content: string;
+      startTime: Dayjs;
+      endTime: Dayjs;
+      orderIndex: number;
+      locked: boolean;
+    },
+    connection: PoolConnection | Pool
+  ) {
+    await connection.execute(
+      `
+        UPDATE card
+        SET content = ?, start_time = ?, end_time = ?, order_index = ?, locked = ?
+        WHERE card_id = ?;
+      `,
+      [
+        data.content,
+        data.startTime.format("HH:mm"),
+        data.endTime.format("HH:mm"),
+        data.orderIndex,
+        data.locked,
+        cardId,
+      ]
+    );
+  }
 }
 
 export default CardModel;
