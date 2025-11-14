@@ -55,7 +55,7 @@ class BoardModel {
       `
         UPDATE board
         SET day_number = day_number + 1
-        WHERE day_number >= ? AND template_id = ?;
+        WHERE day_number > ? AND template_id = ?;
       `,
       [board.day_number, board.template_id]
     );
