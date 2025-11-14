@@ -21,21 +21,22 @@ import {
 } from "../schema/card.schema";
 import CardController from "../controllers/card.controller";
 
-const router = express.Router();
+const cardRouter = express.Router();
 
 // CSRF 보호 미들웨어 적용
-router.use(csrfProtection);
+cardRouter.use(csrfProtection);
 
-// 카드 생성
-router.post(
-  "/",
+// 카드 ID로 위치 정보 조회
+cardRouter.get(
+  "/location/:cardUuid",
   limiter,
   authenticateToken,
-  validateBody(createCardSchema),
-  CardController.createCard
+  validateParams(getLocationSchema),
+  CardController.getLocation
 );
 
-router.get(
+// 카드 조회
+cardRouter.get(
   "/:cardUuid",
   limiter,
   authenticateToken,
@@ -44,7 +45,7 @@ router.get(
 );
 
 // 카드 복제 (특정 카드 바로 뒤에 복제)
-router.post(
+cardRouter.post(
   "/copy/:cardUuid",
   limiter,
   authenticateToken,
@@ -52,8 +53,26 @@ router.post(
   CardController.copyCard
 );
 
+// 카드 이동
+cardRouter.post(
+  "/move",
+  limiter,
+  authenticateToken,
+  validateBody(moveCardSchema),
+  CardController.moveCard
+);
+
+// 카드 생성
+cardRouter.post(
+  "/",
+  limiter,
+  authenticateToken,
+  validateBody(createCardSchema),
+  CardController.createCard
+);
+
 // 카드 수정 (텍스트 에디터 내용 업데이트 포함)
-router.put(
+cardRouter.put(
   "/:cardUuid",
   limiter,
   authenticateToken,
@@ -63,7 +82,7 @@ router.put(
 );
 
 // 카드 삭제
-router.delete(
+cardRouter.delete(
   "/:cardUuid",
   limiter,
   authenticateToken,
@@ -71,22 +90,4 @@ router.delete(
   CardController.deleteCard
 );
 
-// 카드 이동
-router.post(
-  "/move",
-  limiter,
-  authenticateToken,
-  validateBody(moveCardSchema),
-  CardController.moveCard
-);
-
-// 카드 ID로 위치 정보 조회
-router.get(
-  "/location/:cardUuid",
-  limiter,
-  authenticateToken,
-  validateParams(getLocationSchema),
-  CardController.getLocation
-);
-
-export default router;
+export default cardRouter;

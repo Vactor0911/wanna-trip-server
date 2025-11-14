@@ -12,19 +12,16 @@ import {
   updateTemplateParamsSchema,
 } from "../schema/template.schema";
 
-const router = express.Router();
+const templateRouter = express.Router();
 
 // CSRF 보호 미들웨어 적용
-router.use(csrfProtection);
-
-// 템플릿 목록 조회
-router.get("/", limiter, authenticateToken, TemplateController.getTemplates);
+templateRouter.use(csrfProtection);
 
 // 인기 템플릿 조회
-router.get("/popular", limiter, TemplateController.getPopularTemplates);
+templateRouter.get("/popular", limiter, TemplateController.getPopularTemplates);
 
 // UUID로 특정 템플릿 조회
-router.get(
+templateRouter.get(
   "/:templateUuid",
   limiter,
   authenticateToken,
@@ -32,8 +29,11 @@ router.get(
   TemplateController.getTemplate
 );
 
+// 템플릿 목록 조회
+templateRouter.get("/", limiter, authenticateToken, TemplateController.getTemplates);
+
 // 새 템플릿 생성
-router.post(
+templateRouter.post(
   "/",
   limiter,
   authenticateToken,
@@ -41,17 +41,18 @@ router.post(
   TemplateController.createTemplate
 );
 
-// 템플릿 삭제
-router.delete(
-  "/:templateUuid",
+// 템플릿 내 모든 보드의 카드 정렬하기
+templateRouter.put(
+  "/sort/:templateUuid",
   limiter,
   authenticateToken,
-  validateParams(deleteTemplateSchema),
-  TemplateController.deleteTemplate
+  csrfProtection,
+  validateParams(sortCardsSchema),
+  TemplateController.sortCards
 );
 
 // UUID로 템플릿 수정
-router.put(
+templateRouter.put(
   "/:templateUuid",
   limiter,
   authenticateToken,
@@ -61,14 +62,13 @@ router.put(
   TemplateController.updateTemplate
 );
 
-// 템플릿 내 모든 보드의 카드 정렬하기
-router.put(
-  "/sort/:templateUuid",
+// 템플릿 삭제
+templateRouter.delete(
+  "/:templateUuid",
   limiter,
   authenticateToken,
-  csrfProtection,
-  validateParams(sortCardsSchema),
-  TemplateController.sortCards
+  validateParams(deleteTemplateSchema),
+  TemplateController.deleteTemplate
 );
 
-export default router;
+export default templateRouter;

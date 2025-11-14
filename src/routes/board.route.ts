@@ -34,15 +34,6 @@ boardRoute.post(
   BoardController.moveBoard
 );
 
-// 보드 삭제
-boardRoute.delete(
-  "/:boardUuid",
-  limiter,
-  authenticateToken,
-  validateParams(deleteBoardSchema),
-  BoardController.deleteBoard
-);
-
 // 보드 생성 및 삽입
 boardRoute.post(
   "/",
@@ -60,6 +51,15 @@ boardRoute.put(
   csrfProtection,
   validateParams(sortCardsSchema),
   BoardController.sortCards
+);
+
+// 보드 삭제
+boardRoute.delete(
+  "/:boardUuid",
+  limiter,
+  authenticateToken,
+  validateParams(deleteBoardSchema),
+  BoardController.deleteBoard
 );
 
 export default boardRoute;
