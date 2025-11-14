@@ -94,11 +94,18 @@ class BoardModel {
     // 카드 복제
     for (const card of cards) {
       await connection.execute(
-      `
+        `
         INSERT INTO card (card_uuid, board_id, content, start_time, end_time, order_index)
         VALUES (?, ?, ?, ?, ?, ?);
       `,
-      [uuidv4(), newBoard.board_id, card.content, card.start_time, card.end_time, card.order_index]
+        [
+          uuidv4(),
+          newBoard.board_id,
+          card.content,
+          card.start_time,
+          card.end_time,
+          card.order_index,
+        ]
       );
     }
 
@@ -125,6 +132,28 @@ class BoardModel {
       [boardUuid]
     );
     return board;
+  }
+
+  /**
+   * 템플릿 id로 모든 보드 조회
+   * @param templateId 템플릿 id
+   * @param connection 데이터베이스 연결 객체
+   * @returns
+   */
+  static async findAllByTemplateId(
+    templateId: string,
+    connection: PoolConnection | Pool
+  ) {
+    const boards = await connection.execute(
+      `
+        SELECT *
+        FROM board
+        WHERE template_id = ?
+        ORDER BY day_number ASC;
+      `,
+      [templateId]
+    );
+    return boards;
   }
 
   /**
@@ -177,6 +206,35 @@ class BoardModel {
       `,
       [dayNumber, boardUuid]
     );
+  }
+
+  /**
+   * 보드 내 카드 정렬
+   * @param boardId 보드 id
+   * @param connection 데이터베이스 연결 객체
+   */
+  static async sortCards(boardId: string, connection: PoolConnection | Pool) {
+    // 카드 인덱스 정렬
+    const cards = await connection.query(
+      `
+        SELECT card_id
+        FROM card WHERE board_id = ?
+        ORDER BY start_time ASC
+      `,
+      [boardId]
+    );
+
+    let orderIndex = 1;
+    for (const card of cards) {
+      await connection.execute(
+        `
+        UPDATE card
+        SET order_index = ?
+        WHERE card_id = ?;
+      `,
+        [orderIndex++, card.card_id]
+      );
+    }
   }
 }
 

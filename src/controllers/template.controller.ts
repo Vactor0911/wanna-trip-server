@@ -104,6 +104,22 @@ class TemplateController {
       });
     }
   );
+
+  /**
+   * 템플릿 내 모든 보드의 카드 정렬
+   */
+  static sortCards = asyncHandler(async (req: Request, res: Response) => {
+    const userId = req?.user?.userId!;
+    const { templateUuid } = req.params;
+
+    // 템플릿 내 모든 보드의 카드 정렬
+    await TemplateService.sortCards(userId, templateUuid);
+
+    // 응답 반환
+    res.status(200).json({
+      message: "템플릿 내 모든 보드의 카드가 성공적으로 정렬되었습니다.",
+    });
+  });
 }
 
 export default TemplateController;

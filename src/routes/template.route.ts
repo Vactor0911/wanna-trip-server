@@ -1,14 +1,5 @@
 import express from "express";
 import { authenticateToken } from "../middleware/authenticate";
-import {
-  getUserTemplates,
-  createTemplate,
-  deleteTemplate,
-  getTemplateByUuid,
-  updateTemplateByUuid,
-  getPopularTemplates,
-  sortTemplateCards,
-} from "../controllers/templateController";
 import { csrfProtection, limiter } from "../utils";
 import TemplateController from "../controllers/template.controller";
 import { validateBody, validateParams } from "../middleware/validation";
@@ -16,6 +7,7 @@ import {
   createTemplateSchema,
   deleteTemplateSchema,
   getTemplateSchema,
+  sortCardsSchema,
   updateTemplateBodySchema,
   updateTemplateParamsSchema,
 } from "../schema/template.schema";
@@ -70,12 +62,13 @@ router.put(
 );
 
 // 템플릿 내 모든 보드의 카드 정렬하기
-router.post(
-  "/uuid/:templateUuid/sort",
+router.put(
+  "/sort/:templateUuid",
   limiter,
   authenticateToken,
   csrfProtection,
-  sortTemplateCards
+  validateParams(sortCardsSchema),
+  TemplateController.sortCards
 );
 
 export default router;
