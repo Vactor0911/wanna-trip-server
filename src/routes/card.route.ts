@@ -13,6 +13,7 @@ import {
   copyCardSchema,
   createCardSchema,
   deleteCardSchema,
+  getLocationSchema,
   moveCardSchema,
   updateCardBodySchema,
   updateCardParamsSchema,
@@ -72,10 +73,11 @@ router.post(
 
 // 카드 ID로 위치 정보 조회
 router.get(
-  "/location/:cardId",
+  "/location/:cardUuid",
   limiter,
   authenticateToken,
-  getLocationByCardId
+  validateParams(getLocationSchema),
+  CardController.getLocation
 );
 
 export default router;

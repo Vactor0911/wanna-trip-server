@@ -97,6 +97,23 @@ class CardController {
       cardUuid: newCardUuid,
     });
   });
+
+  /**
+   * 카드 위치 정보 조회
+   */
+  static getLocation = asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user?.userId;
+    const { cardUuid } = req.params;
+
+    // 카드 위치 정보 조회
+    const location = await CardService.getLocation(userId, cardUuid);
+
+    // 응답 반환
+    res.status(200).json({
+      message: "카드 위치 정보가 성공적으로 조회되었습니다.",
+      location,
+    });
+  });
 }
 
 export default CardController;

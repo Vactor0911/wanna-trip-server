@@ -58,3 +58,10 @@ export const moveCardSchema = z.object({
 export const copyCardSchema = z.object({
   cardUuid: z.uuid("카드 UUID 형식이 올바르지 않습니다."),
 });
+
+/**
+ * 카드 위치 정보 조회 스키마
+ */
+export const getLocationSchema = z.object({
+  cardUuid: z.uuid("카드 UUID 형식이 올바르지 않습니다."),
+});
