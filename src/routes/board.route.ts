@@ -8,6 +8,7 @@ import {
   createBoardSchema,
   deleteBoardSchema,
   moveBoardSchema,
+  sortCardsSchema,
 } from "../schema/board.schema";
 
 const boardRoute = express.Router();
@@ -52,12 +53,13 @@ boardRoute.post(
 );
 
 // 보드 내 카드 정렬
-// boardRoute.post(
-//   "/:boardId/sort",
-//   limiter,
-//   authenticateToken,
-//   csrfProtection,
-//   sortBoardCards
-// );
+boardRoute.put(
+  "/sort/:boardUuid",
+  limiter,
+  authenticateToken,
+  csrfProtection,
+  validateParams(sortCardsSchema),
+  BoardController.sortCards
+);
 
 export default boardRoute;

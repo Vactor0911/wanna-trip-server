@@ -1,5 +1,5 @@
 import { dbPool } from "../config/db";
-import { ForbiddenError } from "../errors/CustomErrors";
+import { ForbiddenError, NotFoundError } from "../errors/CustomErrors";
 import BoardModel from "../models/board.model";
 import TemplateModel from "../models/template.model";
 import TransactionHandler from "../utils/transactionHandler";
@@ -185,6 +185,41 @@ class TemplateService {
         );
 
         return true;
+      }
+    );
+  }
+
+  /**
+   * 템플릿 내 모든 보드의 카드 정렬
+   * @param userId 사용자 id
+   * @param templateUuid 템플릿 uuid
+   */
+  static async sortCards(userId: string, templateUuid: string) {
+    await TransactionHandler.executeInTransaction(
+      dbPool,
+      async (connection) => {
+        // 템플릿 조회
+        const template = await TemplateModel.findByUuid(
+          templateUuid,
+          connection
+        );
+        if (!template) {
+          throw new NotFoundError("템플릿을 찾을 수 없습니다.");
+        }
+
+        // 템플릿 수정 권한 확인
+        await this.validateTemplatePermissionById(userId, template.template_id);
+
+        // 템플릿 내 모든 보드 조회
+        const boards = await BoardModel.findAllByTemplateId(
+          template.template_id,
+          connection
+        );
+
+        // 각 보드의 카드 정렬
+        for (const board of boards as any[]) {
+          await BoardModel.sortCards(board.board_id, connection);
+        }
       }
     );
   }

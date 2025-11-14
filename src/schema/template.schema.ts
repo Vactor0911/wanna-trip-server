@@ -36,3 +36,10 @@ export const updateTemplateBodySchema = z.object({
     .min(1, "템플릿 제목은 최소 1자 이상이어야 합니다.")
     .max(100, "템플릿 제목은 최대 100자 이하여야 합니다."),
 });
+
+/**
+ * 카드 정렬 스키마
+ */
+export const sortCardsSchema = z.object({
+  templateUuid: z.uuid("템플릿 UUID 형식이 올바르지 않습니다."),
+});

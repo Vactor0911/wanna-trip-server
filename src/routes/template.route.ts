@@ -7,6 +7,7 @@ import {
   createTemplateSchema,
   deleteTemplateSchema,
   getTemplateSchema,
+  sortCardsSchema,
   updateTemplateBodySchema,
   updateTemplateParamsSchema,
 } from "../schema/template.schema";
@@ -61,12 +62,13 @@ router.put(
 );
 
 // 템플릿 내 모든 보드의 카드 정렬하기
-// router.post(
-//   "/uuid/:templateUuid/sort",
-//   limiter,
-//   authenticateToken,
-//   csrfProtection,
-//   sortTemplateCards
-// );
+router.put(
+  "/sort/:templateUuid",
+  limiter,
+  authenticateToken,
+  csrfProtection,
+  validateParams(sortCardsSchema),
+  TemplateController.sortCards
+);
 
 export default router;

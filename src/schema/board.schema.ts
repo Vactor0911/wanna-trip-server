@@ -35,3 +35,10 @@ export const moveBoardSchema = z.object({
     .min(1, "일차는 최소 1 이상이어야 합니다.")
     .max(15, "일차는 최대 15 이하이어야 합니다."),
 });
+
+/**
+ * 보드 내 카드 정렬 스키마
+ */
+export const sortCardsSchema = z.object({
+  boardUuid: z.uuid("보드 UUID 형식이 올바르지 않습니다."),
+});
