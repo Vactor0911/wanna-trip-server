@@ -15,6 +15,13 @@ export const createCardSchema = z.object({
 });
 
 /**
+ * 카드 조회 스키마
+ */
+export const getCardSchema = z.object({
+  cardUuid: z.uuid("카드 UUID 형식이 올바르지 않습니다."),
+});
+
+/**
  * 카드 삭제 스키마
  */
 export const deleteCardSchema = z.object({

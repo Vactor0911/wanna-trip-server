@@ -13,6 +13,7 @@ import {
   copyCardSchema,
   createCardSchema,
   deleteCardSchema,
+  getCardSchema,
   getLocationSchema,
   moveCardSchema,
   updateCardBodySchema,
@@ -32,6 +33,14 @@ router.post(
   authenticateToken,
   validateBody(createCardSchema),
   CardController.createCard
+);
+
+router.get(
+  "/:cardUuid",
+  limiter,
+  authenticateToken,
+  validateParams(getCardSchema),
+  CardController.getCard
 );
 
 // 카드 복제 (특정 카드 바로 뒤에 복제)

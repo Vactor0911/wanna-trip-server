@@ -26,6 +26,19 @@ class CardController {
     });
   });
 
+  static getCard = asyncHandler(async (req: Request, res: Response) => {
+    const { cardUuid } = req.params;
+
+    // 카드 조회
+    const card = await CardService.getCardByUuid(cardUuid);
+
+    // 응답 반환
+    res.status(200).json({
+      message: "카드가 성공적으로 조회되었습니다.",
+      card,
+    });
+  });
+
   /**
    * 카드 삭제
    */

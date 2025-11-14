@@ -1,4 +1,4 @@
-import { Dayjs, isDayjs } from "dayjs";
+import dayjs, { Dayjs, isDayjs } from "dayjs";
 import { dbPool } from "../config/db";
 import { NotFoundError } from "../errors/CustomErrors";
 import BoardModel from "../models/board.model";
@@ -6,6 +6,9 @@ import CardModel from "../models/card.model";
 import TransactionHandler from "../utils/transactionHandler";
 import TemplateService from "./template.service";
 import LocationModel from "../models/location.model";
+import customParseFormat from "dayjs/plugin/customParseFormat";
+
+dayjs.extend(customParseFormat);
 
 class CardService {
   /**
@@ -47,6 +50,22 @@ class CardService {
         return cardUuid;
       }
     );
+  }
+
+  /**
+   * 카드 uuid로 카드 조회
+   * @param cardUuid 카드 uuid
+   * @returns 조회된 카드
+   */
+  static async getCardByUuid(cardUuid: string) {
+    const card = await CardModel.findByUuid(cardUuid, dbPool);
+    if (!card) {
+      throw new NotFoundError("카드를 찾을 수 없습니다.");
+    }
+
+    // 카드 포맷팅
+    const formattedCard = this.formatCard(card);
+    return formattedCard;
   }
 
   /**
@@ -267,6 +286,24 @@ class CardService {
         return location;
       }
     );
+  }
+
+  /**
+   * 템플릿 객체 포맷팅
+   * @param template 템플릿 객체
+   * @returns 포맷팅된 템플릿 객체
+   */
+  static formatCard(card: any) {
+    return {
+      uuid: card.card_uuid,
+      content: card.content,
+      startTime: dayjs(card.start_time, "HH:mm:ss").format("HH:mm"),
+      endTime: dayjs(card.end_time, "HH:mm:ss").format("HH:mm"),
+      orderIndex: card.order_index,
+      locked: card.locked === 1,
+      createdAt: card.created_at,
+      updatedAt: card.updated_at,
+    };
   }
 }
 
