@@ -10,6 +10,7 @@ import {
 } from "../controllers/cardController";
 import { validateBody, validateParams } from "../middleware/validation";
 import {
+  copyCardSchema,
   createCardSchema,
   deleteCardSchema,
   moveCardSchema,
@@ -23,13 +24,22 @@ const router = express.Router();
 // CSRF 보호 미들웨어 적용
 router.use(csrfProtection);
 
-// 새 카드 생성 및 복제
+// 카드 생성
 router.post(
   "/",
   limiter,
   authenticateToken,
   validateBody(createCardSchema),
   CardController.createCard
+);
+
+// 카드 복제 (특정 카드 바로 뒤에 복제)
+router.post(
+  "/copy/:cardUuid",
+  limiter,
+  authenticateToken,
+  validateParams(copyCardSchema),
+  CardController.copyCard
 );
 
 // 카드 수정 (텍스트 에디터 내용 업데이트 포함)

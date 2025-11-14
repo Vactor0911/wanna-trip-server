@@ -9,13 +9,13 @@ class CardController {
    */
   static createCard = asyncHandler(async (req: Request, res: Response) => {
     const userId = req.user?.userId;
-    const { boardUuid, index, startTime } = req.body;
+    const { boardUuid, orderIndex, startTime } = req.body;
 
     // 카드 생성
     const cardUuid = await CardService.createCard(
       userId,
       boardUuid,
-      index,
+      orderIndex,
       dayjs(startTime)
     );
 
@@ -78,6 +78,23 @@ class CardController {
     // 응답 반환
     res.status(200).json({
       message: "카드가 성공적으로 이동되었습니다.",
+    });
+  });
+
+  /**
+   * 카드 복제
+   */
+  static copyCard = asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user?.userId;
+    const { cardUuid } = req.params;
+
+    // 카드 복제
+    const newCardUuid = await CardService.copyCard(userId, cardUuid);
+
+    // 응답 반환
+    res.status(201).json({
+      message: "카드가 성공적으로 복제되었습니다.",
+      cardUuid: newCardUuid,
     });
   });
 }

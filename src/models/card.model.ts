@@ -1,19 +1,23 @@
-import { Dayjs } from "dayjs";
+import dayjs, { Dayjs } from "dayjs";
 import { Pool, PoolConnection } from "mariadb";
 import { v4 as uuidv4 } from "uuid";
+import customParseFormat from "dayjs/plugin/customParseFormat";
+
+dayjs.extend(customParseFormat);
 
 class CardModel {
   /**
    * 카드 생성
    * @param boardId 보드 id
-   * @param index 인덱스
+   * @param startTime 시작 시간
+   * @param orderIndex 인덱스
    * @param connection 데이터베이스 연결 객체
    * @return 생성된 카드 uuid
    */
   static async create(
     boardId: string,
-    index: number,
     startTime: Dayjs,
+    orderIndex: number,
     connection: PoolConnection | Pool
   ) {
     // 기존 카드 인덱스 조정
@@ -23,7 +27,7 @@ class CardModel {
         SET order_index = order_index + 1
         WHERE board_id = ? AND order_index >= ?
       `,
-      [boardId, index]
+      [boardId, orderIndex]
     );
 
     // 카드 생성
@@ -39,7 +43,57 @@ class CardModel {
         boardId,
         startTime.format("HH:mm"),
         endTime.format("HH:mm"),
-        index,
+        orderIndex,
+      ]
+    );
+
+    // 생성된 카드 uuid 반환
+    return cardUuid;
+  }
+
+  /**
+   * 카드 복제
+   * @param cardId 카드 id
+   * @param connection 데이터베이스 연결 객체
+   * @return 생성된 카드 uuid
+   */
+  static async copy(cardId: string, connection: PoolConnection | Pool) {
+    // 기존 카드 정보 조회
+    const [card] = await connection.execute(
+      `
+        SELECT *
+        FROM card
+        WHERE card_id = ?;
+      `,
+      [cardId]
+    );
+
+    // 기존 카드 인덱스 조정
+    await connection.execute(
+      `
+        UPDATE card
+        SET order_index = order_index + 1
+        WHERE board_id = ? AND order_index > ?
+      `,
+      [card.board_id, card.order_index]
+    );
+
+    // 카드 생성
+    const cardUuid = uuidv4();
+    const startTime = card.end_time;
+    const endTime = dayjs(startTime, "HH:mm:ss").add(10, "minute");
+    await connection.execute(
+      `
+      INSERT INTO card (card_uuid, board_id, content, start_time, end_time, order_index)
+      VALUES (?, ?, ?, ?, ?, ?)
+      `,
+      [
+        cardUuid,
+        card.board_id,
+        card.content,
+        startTime,
+        endTime.format("HH:mm"),
+        card.order_index + 1,
       ]
     );
 
