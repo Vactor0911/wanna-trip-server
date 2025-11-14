@@ -94,9 +94,8 @@ class BoardService {
         );
 
         // 보드 복제
-        const newBoardUuid = await BoardModel.create(
-          board.template_id,
-          board.day_number + 1,
+        const newBoardUuid = await BoardModel.copy(
+          board.board_id,
           connection
         );
 
