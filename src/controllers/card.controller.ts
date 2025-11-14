@@ -27,6 +27,9 @@ class CardController {
     });
   });
 
+  /**
+   * 카드 조회
+   */
   static getCard = asyncHandler(async (req: Request, res: Response) => {
     const { cardUuid } = req.params;
 
@@ -62,7 +65,7 @@ class CardController {
   static updateCard = asyncHandler(async (req: Request, res: Response) => {
     const userId = req.user?.userId;
     const { cardUuid } = req.params;
-    const { content, startTime, endTime, orderIndex, locked } = req.body;
+    const { content, startTime, endTime, orderIndex, locked, location } = req.body;
 
     // 카드 수정
     await CardService.updateCard(userId, cardUuid, {
@@ -71,6 +74,7 @@ class CardController {
       endTime: dayjs(endTime),
       orderIndex,
       locked,
+      location
     });
 
     // 응답 반환

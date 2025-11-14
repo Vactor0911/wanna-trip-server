@@ -21,7 +21,7 @@ class LocationModel {
     longitude: number,
     category: string,
     thumbnail_url: string,
-    connection: PoolConnection | Pool = dbPool
+    connection: PoolConnection | Pool
   ) {
     // 카드 조회
     const [card] = await connection.execute(
@@ -50,6 +50,39 @@ class LocationModel {
         category,
         thumbnail_url,
       ]
+    );
+  }
+
+  /**
+   * 위치 정보 수정
+   * @param cardUuid 카드 uuid
+   * @param title 장소명
+   * @param address 주소
+   * @param latitude 위도
+   * @param longitude 경도
+   * @param category 카테고리
+   * @param thumbnail_url 썸네일 URL
+   * @param connection 데이터베이스 연결 객체
+   */
+  static async update(
+    cardUuid: string,
+    title: string,
+    address: string,
+    latitude: number,
+    longitude: number,
+    category: string,
+    thumbnail_url: string,
+    connection: PoolConnection | Pool
+  ) {
+    await connection.execute(
+      `
+        UPDATE location
+        SET title = ?, address = ?, latitude = ?, longitude = ?, category = ?, thumbnail_url = ?
+        WHERE card_id = (
+          SELECT card_id FROM card WHERE card_uuid = ?
+        )
+      `,
+      [title, address, latitude, longitude, category, thumbnail_url, cardUuid]
     );
   }
 
@@ -87,6 +120,24 @@ class LocationModel {
       [cardId]
     );
     return locations && locations.length > 0 ? locations[0] : null;
+  }
+
+  /**
+   * 카드 id로 위치 정보 삭제
+   * @param cardId 카드 id
+   * @param connection 데이터베이스 연결 객체
+   */
+  static async deleteByCardId(
+    cardId: string,
+    connection: PoolConnection | Pool
+  ) {
+    await connection.execute(
+      `
+        DELETE FROM location
+        WHERE card_id = ?
+      `,
+      [cardId]
+    );
   }
 }
 

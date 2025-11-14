@@ -132,6 +132,7 @@ class CardService {
    * @param userId 사용자 id
    * @param cardUuid 카드 uuid
    * @param data 수정할 데이터
+   * @return 수정된 카드
    */
   static async updateCard(
     userId: string,
@@ -142,6 +143,14 @@ class CardService {
       endTime: Dayjs;
       orderIndex: number;
       locked: boolean;
+      location: {
+        title: string;
+        address?: string;
+        latitude: number;
+        longitude: number;
+        category?: string;
+        thumbnail_url?: string;
+      };
     }
   ) {
     await TransactionHandler.executeInTransaction(
@@ -170,6 +179,55 @@ class CardService {
 
         // 카드 수정
         await CardModel.update(card.card_id, data, connection);
+
+        // 위치 정보 수정
+        const location = data.location;
+        if (location) {
+          // 위치 정보 객체
+          const locationObject = {
+            title: location.title,
+            address: location.address || "",
+            latitude: location.latitude,
+            longitude: location.longitude,
+            category: location.category || "",
+            thumbnail_url: location.thumbnail_url || "",
+          };
+
+          // 위치 정보 존재 여부 확인
+          const existingLocation = await LocationModel.findByCardId(
+            card.card_id,
+            connection
+          );
+
+          if (!existingLocation) {
+            // 위치 정보가 없으면 생성
+            await LocationModel.create(
+              cardUuid,
+              locationObject.title,
+              locationObject.address,
+              locationObject.latitude,
+              locationObject.longitude,
+              locationObject.category,
+              locationObject.thumbnail_url,
+              connection
+            );
+            return;
+          } else {
+            await LocationModel.update(
+              cardUuid,
+              locationObject.title,
+              locationObject.address,
+              locationObject.latitude,
+              locationObject.longitude,
+              locationObject.category,
+              locationObject.thumbnail_url,
+              connection
+            );
+          }
+        } else {
+          // 위치 정보가 없으면 삭제
+          await LocationModel.deleteByCardId(card.card_id, connection);
+        }
       }
     );
   }
