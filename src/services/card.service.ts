@@ -23,7 +23,15 @@ class CardService {
     userId: string,
     boardUuid: string,
     orderIndex: number,
-    startTime: Dayjs
+    startTime: Dayjs,
+    location: {
+      title: string;
+      address?: string;
+      latitude: number;
+      longitude: number;
+      category?: string;
+      thumbnail_url?: string;
+    }
   ) {
     await TransactionHandler.executeInTransaction(
       dbPool,
@@ -47,6 +55,21 @@ class CardService {
           orderIndex,
           connection
         );
+
+        // 위치 정보 생성
+        if (location) {
+          await LocationModel.create(
+            cardUuid,
+            location.title,
+            location.address || "",
+            location.latitude,
+            location.longitude,
+            location.category || "",
+            location.thumbnail_url || "",
+            connection
+          );
+        }
+
         return cardUuid;
       }
     );

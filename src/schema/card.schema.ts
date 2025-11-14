@@ -12,6 +12,16 @@ export const createCardSchema = z.object({
   startTime: z.string().refine((date) => !isNaN(Date.parse(date)), {
     message: "유효한 날짜 형식이어야 합니다.",
   }),
+  location: z
+    .object({
+      title: z.string("위치 제목은 문자열이어야 합니다."),
+      address: z.string("위치 주소는 문자열이어야 합니다.").optional(),
+      latitude: z.number("위도는 숫자여야 합니다."),
+      longitude: z.number("경도는 숫자여야 합니다."),
+      category: z.string("카테고리는 문자열이어야 합니다.").optional(),
+      thumbnail_url: z.string("썸네일 URL은 문자열이어야 합니다.").optional(),
+    })
+    .optional(),
 });
 
 /**

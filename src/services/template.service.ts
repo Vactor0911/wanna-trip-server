@@ -167,6 +167,27 @@ class TemplateService {
       sharedCount: template.shared_count,
     };
   }
+
+  /**
+   * 계정 연동 시 템플릿 병합
+   * @param sourceUserId 소스 사용자 id
+   * @param targetUserId 타겟 사용자 id
+   * @returns 병합 결과
+   */
+  static async mergeTemplates(sourceUserId: number, targetUserId: number) {
+    await TransactionHandler.executeInTransaction(
+      dbPool,
+      async (connection) => {
+        // 소스 사용자의 템플릿을 타겟 사용자로 이전
+        await connection.query(
+          "UPDATE template SET user_id = ? WHERE user_id = ?",
+          [targetUserId, sourceUserId]
+        );
+
+        return true;
+      }
+    );
+  }
 }
 
 export default TemplateService;

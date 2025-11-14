@@ -9,14 +9,15 @@ class CardController {
    */
   static createCard = asyncHandler(async (req: Request, res: Response) => {
     const userId = req.user?.userId;
-    const { boardUuid, orderIndex, startTime } = req.body;
+    const { boardUuid, orderIndex, startTime, location } = req.body;
 
     // 카드 생성
     const cardUuid = await CardService.createCard(
       userId,
       boardUuid,
       orderIndex,
-      dayjs(startTime)
+      dayjs(startTime),
+      location
     );
 
     // 응답 반환

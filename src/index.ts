@@ -1,4 +1,4 @@
-import express, { Request, Response } from "express";
+import express from "express";
 import cors from "cors";
 import dotenv from "dotenv"; // 환경 변수 사용한 민감한 정보 관리
 import cookieParser from "cookie-parser"; // 쿠키 파싱 미들웨어 추가
