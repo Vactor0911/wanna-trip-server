@@ -41,7 +41,7 @@ class BoardModel {
 
   static async copy(boardId: string, connection: PoolConnection | Pool) {
     // 기존 보드 정보 조회
-    const [board] = await connection.query(
+    const [board] = await connection.execute(
       `
         SELECT *
         FROM board
@@ -72,7 +72,7 @@ class BoardModel {
 
     // 카드 복제
     // 기존 카드 조회
-    const cards = await connection.query(
+    const cards = await connection.execute(
       `
       SELECT content, start_time, end_time, order_index
       FROM card
@@ -82,7 +82,7 @@ class BoardModel {
     );
 
     // 새 보드 ID 조회
-    const [newBoard] = await connection.query(
+    const [newBoard] = await connection.execute(
       `
       SELECT board_id
       FROM board
@@ -123,7 +123,7 @@ class BoardModel {
     boardUuid: string,
     connection: PoolConnection | Pool
   ) {
-    const [board] = await connection.query(
+    const [board] = await connection.execute(
       `
         SELECT *
         FROM board
@@ -215,7 +215,7 @@ class BoardModel {
    */
   static async sortCards(boardId: string, connection: PoolConnection | Pool) {
     // 카드 인덱스 정렬
-    const cards = await connection.query(
+    const cards = await connection.execute(
       `
         SELECT card_id
         FROM card WHERE board_id = ?
