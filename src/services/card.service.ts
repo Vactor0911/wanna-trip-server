@@ -370,9 +370,9 @@ class CardService {
   }
 
   /**
-   * 템플릿 객체 포맷팅
-   * @param template 템플릿 객체
-   * @returns 포맷팅된 템플릿 객체
+   * 카드 객체 포맷팅
+   * @param card 카드 객체
+   * @returns 포맷팅된 카드 객체
    */
   static formatCard(card: any) {
     return {
