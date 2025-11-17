@@ -1,4 +1,4 @@
-import dayjs, { Dayjs, isDayjs } from "dayjs";
+import dayjs, { Dayjs } from "dayjs";
 import { dbPool } from "../config/db";
 import { NotFoundError } from "../errors/CustomErrors";
 import BoardModel from "../models/board.model";

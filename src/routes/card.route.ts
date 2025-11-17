@@ -1,13 +1,6 @@
 import express from "express";
 import { authenticateToken } from "../middleware/authenticate";
 import { csrfProtection, limiter } from "../utils";
-import {
-  addCard,
-  deleteCard,
-  updateCard,
-  moveCard,
-  getLocationByCardId,
-} from "../controllers/cardController";
 import { validateBody, validateParams } from "../middleware/validation";
 import {
   copyCardSchema,
