@@ -1,5 +1,4 @@
 import { Pool, PoolConnection } from "mariadb";
-import { dbPool } from "../config/db";
 
 class LocationModel {
   /**
