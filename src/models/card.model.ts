@@ -223,7 +223,7 @@ class CardModel {
       // 같은 보드 내 이동
       if (card.order_index < orderIndex) {
         // 아래로 이동
-        connection.execute(
+        await connection.execute(
           `
             UPDATE card
             SET order_index = order_index - 1
@@ -233,7 +233,7 @@ class CardModel {
         );
       } else {
         // 위로 이동
-        connection.execute(
+        await connection.execute(
           `
             UPDATE card
             SET order_index = order_index + 1
@@ -244,7 +244,7 @@ class CardModel {
       }
     } else {
       // 다른 보드로 이동
-      connection.execute(
+      await connection.execute(
         `
           UPDATE card
           SET order_index = order_index + 1
@@ -252,7 +252,7 @@ class CardModel {
         `,
         [boardId, orderIndex]
       );
-      connection.execute(
+      await connection.execute(
         `
           UPDATE card
           SET order_index = order_index - 1
