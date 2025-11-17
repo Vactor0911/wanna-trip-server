@@ -10,8 +10,8 @@ import validator from "validator"; // 유효성 검사 라이브러리
 const allowedSymbolsForPassword = /^[a-zA-Z0-9!@#$%^&*?]*$/; // 허용된 문자만 포함하는지 확인
 
 import { dbPool } from "../config/db";
-import { mergeTemplates } from "./templateController";
 import path from "path";
+import TemplateService from "../services/template.service";
 
 // 사용자 회원가입
 export const register = async (req: Request, res: Response) => {
@@ -1084,7 +1084,7 @@ export const linkAccount = async (req: Request, res: Response) => {
 
     // 템플릿 병합 시도 (트랜잭션과 독립적)
     try {
-      await mergeTemplates(user.user_id, user.user_id);
+      await TemplateService.mergeTemplates(user.user_id, user.user_id);
     } catch (mergeErr) {
       console.error("템플릿 병합 실패:", mergeErr);
     }

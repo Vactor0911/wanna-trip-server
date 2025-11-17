@@ -1,0 +1,74 @@
+import express from "express";
+import { authenticateToken } from "../middleware/authenticate";
+import { csrfProtection, limiter } from "../utils";
+import TemplateController from "../controllers/template.controller";
+import { validateBody, validateParams } from "../middleware/validation";
+import {
+  createTemplateSchema,
+  deleteTemplateSchema,
+  getTemplateSchema,
+  sortCardsSchema,
+  updateTemplateBodySchema,
+  updateTemplateParamsSchema,
+} from "../schema/template.schema";
+
+const templateRouter = express.Router();
+
+// CSRF 보호 미들웨어 적용
+templateRouter.use(csrfProtection);
+
+// 인기 템플릿 조회
+templateRouter.get("/popular", limiter, TemplateController.getPopularTemplates);
+
+// UUID로 특정 템플릿 조회
+templateRouter.get(
+  "/:templateUuid",
+  limiter,
+  authenticateToken,
+  validateParams(getTemplateSchema),
+  TemplateController.getTemplate
+);
+
+// 템플릿 목록 조회
+templateRouter.get("/", limiter, authenticateToken, TemplateController.getTemplates);
+
+// 새 템플릿 생성
+templateRouter.post(
+  "/",
+  limiter,
+  authenticateToken,
+  validateBody(createTemplateSchema),
+  TemplateController.createTemplate
+);
+
+// 템플릿 내 모든 보드의 카드 정렬하기
+templateRouter.put(
+  "/sort/:templateUuid",
+  limiter,
+  authenticateToken,
+  csrfProtection,
+  validateParams(sortCardsSchema),
+  TemplateController.sortCards
+);
+
+// UUID로 템플릿 수정
+templateRouter.put(
+  "/:templateUuid",
+  limiter,
+  authenticateToken,
+  csrfProtection,
+  validateParams(updateTemplateParamsSchema),
+  validateBody(updateTemplateBodySchema),
+  TemplateController.updateTemplate
+);
+
+// 템플릿 삭제
+templateRouter.delete(
+  "/:templateUuid",
+  limiter,
+  authenticateToken,
+  validateParams(deleteTemplateSchema),
+  TemplateController.deleteTemplate
+);
+
+export default templateRouter;

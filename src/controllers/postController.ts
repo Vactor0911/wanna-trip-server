@@ -1037,7 +1037,7 @@ export const getPopularTags = async (req: Request, res: Response) => {
     // 태그별로 카운트하는 딕셔너리 선언
     const tagCounts: { [tag: string]: number } = {};
 
-    tags.forEach((row) => {
+    tags.forEach((row: { tag: string; }) => {
       if (!row.tag) return;
       const splittedTags = row.tag.split(",").map((t: string) => t.trim());
       splittedTags.forEach((tag: string) => {
