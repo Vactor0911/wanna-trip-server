@@ -114,6 +114,7 @@ class TemplateController {
     async (req: Request, res: Response) => {
       // 인기 템플릿 조회
       const popularTemplates = await TemplateService.getPopularTemplates();
+      console.log(popularTemplates);
 
       // 응답 반환
       res.status(200).json({

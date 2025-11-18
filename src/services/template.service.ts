@@ -144,7 +144,7 @@ class TemplateService {
 
     // 템플릿 반환
     const formattedTemplates = templates.map((template: any) =>
-      this.formatTemplate(template)
+      this.formatPopularTemplate(template)
     );
     return formattedTemplates;
   }
@@ -214,6 +214,21 @@ class TemplateService {
         })),
       })),
     };
+  }
+
+  /**
+   * 인기 템플릿 객체 포맷팅
+   * @param template 템플릿 객체
+   * @returns 포맷팅된 템플릿 객체
+   */
+  static formatPopularTemplate(template: any) {
+    return {
+      uuid: template.template_uuid,
+      title: template.title,
+      createdAt: template.created_at,
+      sharedCount: template.shared_count,
+      ownerName: template.owner_name,
+    }
   }
 
   /**
