@@ -68,6 +68,12 @@ class TemplateModel {
     return template;
   }
 
+  /**
+   * 사용자 id로 모든 템플릿 조회
+   * @param userId 사용자 id
+   * @param connection 데이터베이스 연결 객체
+   * @returns 
+   */
   static async findAllByUserId(
     userId: string,
     connection: PoolConnection | Pool

@@ -153,6 +153,8 @@ class CardService {
       };
     }
   ) {
+    console.log(data);
+
     await TransactionHandler.executeInTransaction(
       dbPool,
       async (connection) => {
@@ -318,6 +320,8 @@ class CardService {
 
         // 카드 복제
         const newCardUuid = await CardModel.copy(card.card_id, connection);
+
+        // 복제된 카드 uuid 반환
         return newCardUuid;
       }
     );
@@ -359,9 +363,6 @@ class CardService {
           card.card_id,
           connection
         );
-        if (!location) {
-          throw new NotFoundError("카드 위치 정보를 찾을 수 없습니다.");
-        }
 
         // 위치 정보 반환
         return location;

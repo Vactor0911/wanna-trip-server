@@ -1,6 +1,8 @@
 import { dbPool } from "../config/db";
 import { ForbiddenError, NotFoundError } from "../errors/CustomErrors";
 import BoardModel from "../models/board.model";
+import CardModel from "../models/card.model";
+import LocationModel from "../models/location.model";
 import TemplateModel from "../models/template.model";
 import TransactionHandler from "../utils/transactionHandler";
 
@@ -84,6 +86,30 @@ class TemplateService {
 
     // 템플릿 조회
     const template = await TemplateModel.findByUuid(templateUuid, dbPool);
+    if (!template) {
+      throw new NotFoundError("템플릿을 찾을 수 없습니다.");
+    }
+
+    // 보드 조회
+    const boards = await BoardModel.findAllByTemplateId(
+      template.template_id,
+      dbPool
+    );
+    template.boards = boards;
+
+    // 각 보드의 카드 조회
+    for (const board of boards as any[]) {
+      const cards = await CardModel.findAllByBoardId(board.board_id, dbPool);
+      board.cards = cards;
+    }
+
+    // 각 카드의 위치 정보 조회
+    for (const board of boards as any[]) {
+      for (const card of board.cards as any[]) {
+        const location = await LocationModel.findByCardId(card.card_id, dbPool);
+        card.location = location;
+      }
+    }
 
     // 템플릿 반환
     const formattedTemplates = this.formatTemplate(template);
@@ -165,6 +191,28 @@ class TemplateService {
       createdAt: template.created_at,
       updatedAt: template.updated_at,
       sharedCount: template.shared_count,
+      boards: template.boards?.map((board: any) => ({
+        uuid: board.board_uuid,
+        dayNumber: board.day_number,
+        cards: board.cards?.map((card: any) => ({
+          uuid: card.card_uuid,
+          content: card.content,
+          startTime: card.start_time,
+          endTime: card.end_time,
+          orderIndex: card.order_index,
+          locked: card.locked,
+          location: card.location
+            ? {
+                title: card.location.title,
+                address: card.location.address,
+                latitude: card.location.latitude,
+                longitude: card.location.longitude,
+                category: card.location.category,
+                thumbnailUrl: card.location.thumbnail_url,
+              }
+            : null,
+        })),
+      })),
     };
   }
 

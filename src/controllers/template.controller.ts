@@ -15,6 +15,7 @@ class TemplateController {
 
     // 응답 반환
     res.status(201).json({
+      success: true,
       message: "템플릿이 성공적으로 생성되었습니다.",
       templateUuid,
     });
@@ -32,6 +33,7 @@ class TemplateController {
 
     // 응답 반환
     res.status(200).json({
+      success: true,
       message: "템플릿이 성공적으로 삭제되었습니다.",
     });
   });
@@ -47,6 +49,7 @@ class TemplateController {
 
     // 응답 반환
     res.status(200).json({
+      success: true,
       message: "템플릿 목록이 성공적으로 조회되었습니다.",
       templates,
     });
@@ -65,10 +68,24 @@ class TemplateController {
       templateUuid
     );
 
+    // 템플릿 수정 권한 확인
+    let isOwner: boolean;
+    try {
+      await TemplateService.validateTemplatePermissionByUuid(
+        userId,
+        templateUuid
+      );
+      isOwner = true;
+    } catch (error) {
+      isOwner = false;
+    }
+
     // 응답 반환
     res.status(200).json({
+      success: true,
       message: "템플릿이 성공적으로 조회되었습니다.",
       template,
+      isOwner,
     });
   });
 
@@ -85,6 +102,7 @@ class TemplateController {
 
     // 응답 반환
     res.status(200).json({
+      success: true,
       message: "템플릿이 성공적으로 수정되었습니다.",
     });
   });
@@ -99,6 +117,7 @@ class TemplateController {
 
       // 응답 반환
       res.status(200).json({
+        success: true,
         message: "인기 템플릿이 성공적으로 조회되었습니다.",
         popularTemplates,
       });
@@ -117,6 +136,7 @@ class TemplateController {
 
     // 응답 반환
     res.status(200).json({
+      success: true,
       message: "템플릿 내 모든 보드의 카드가 성공적으로 정렬되었습니다.",
     });
   });
