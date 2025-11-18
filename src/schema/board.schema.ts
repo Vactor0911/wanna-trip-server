@@ -19,6 +19,13 @@ export const deleteBoardSchema = z.object({
 });
 
 /**
+ * 보드 초기화 스키마
+ */
+export const clearBoardSchema = z.object({
+  boardUuid: z.uuid("보드 UUID 형식이 올바르지 않습니다."),
+});
+
+/**
  * 보드 복제 스키마
  */
 export const copyBoardSchema = z.object({

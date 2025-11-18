@@ -173,6 +173,22 @@ class BoardModel {
   }
 
   /**
+   * 보드 초기화
+   * @param boardId 보드 id
+   * @param connection 데이터베이스 연결 객체
+   */
+  static async clear(boardId: string, connection: PoolConnection | Pool) {
+    // 보드 내 카드 삭제
+    await connection.execute(
+      `
+        DELETE FROM card
+        WHERE board_id = ?
+      `,
+      [boardId]
+    );
+  }
+
+  /**
    * 보드 이동
    * @param boardUuid 보드 uuid
    * @param dayNumber 이동할 일차
@@ -183,19 +199,46 @@ class BoardModel {
     dayNumber: number,
     connection: PoolConnection | Pool
   ) {
-    // 보드 일차 조정
-    await connection.execute(
+    // 보드 현재 일차 조회
+    const board = await connection.execute(
       `
-        UPDATE board
-        SET day_number = day_number + 1
-        WHERE day_number >= ? AND template_id = (
-          SELECT template_id
-          FROM board
-          WHERE board_uuid = ?
-        )
+        SELECT day_number
+        FROM board
+        WHERE board_uuid = ?;
       `,
-      [dayNumber, boardUuid]
+      [boardUuid]
     );
+
+    // 보드 일차 조정
+    if (board[0].day_number < dayNumber) {
+      // 오른쪽으로 이동할 때
+      await connection.execute(
+        `
+          UPDATE board
+          SET day_number = day_number - 1
+          WHERE day_number <= ? AND day_number > ? AND template_id = (
+            SELECT template_id
+            FROM board
+            WHERE board_uuid = ?
+          )
+        `,
+        [dayNumber, board[0].day_number, boardUuid]
+      );
+    } else if (board[0].day_number > dayNumber) {
+      // 왼쪽으로 이동할 때
+      await connection.execute(
+        `
+          UPDATE board
+          SET day_number = day_number + 1
+          WHERE day_number >= ? AND day_number < ? AND template_id = (
+            SELECT template_id
+            FROM board
+            WHERE board_uuid = ?
+          )
+        `,
+        [dayNumber, board[0].day_number, boardUuid]
+      );
+    }
 
     // 보드 이동
     await connection.execute(
@@ -233,6 +276,39 @@ class BoardModel {
         WHERE card_id = ?;
       `,
         [orderIndex++, card.card_id]
+      );
+    }
+  }
+
+  /**
+   * 보드 일차 재정렬
+   * @param templateId 템플릿 id
+   * @param connection 데이터베이스 연결 객체
+   */
+  static async reorderBoards(
+    templateId: string,
+    connection: PoolConnection | Pool
+  ) {
+    // 전체 보드 일차 재정렬
+    const boards = await connection.execute(
+      `
+        SELECT board_id
+        FROM board
+        WHERE template_id = ?
+        ORDER BY day_number ASC;
+      `,
+      [templateId]
+    );
+
+    let dayNumberCounter = 1;
+    for (const board of boards) {
+      await connection.execute(
+        `
+          UPDATE board
+          SET day_number = ?
+          WHERE board_id = ?;
+        `,
+        [dayNumberCounter++, board.board_id]
       );
     }
   }

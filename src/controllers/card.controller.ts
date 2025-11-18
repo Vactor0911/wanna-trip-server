@@ -2,6 +2,9 @@ import { Request, Response } from "express";
 import { asyncHandler } from "../utils/asyncHandler";
 import CardService from "../services/card.service";
 import dayjs from "dayjs";
+import customParseFormat from "dayjs/plugin/customParseFormat";
+
+dayjs.extend(customParseFormat);
 
 class CardController {
   /**
@@ -16,12 +19,13 @@ class CardController {
       userId,
       boardUuid,
       orderIndex,
-      dayjs(startTime),
+      dayjs(startTime, "HH:mm:ss"),
       location
     );
 
     // 응답 반환
     res.status(201).json({
+      success: true,
       message: "카드가 성공적으로 생성되었습니다.",
       cardUuid,
     });
@@ -38,6 +42,7 @@ class CardController {
 
     // 응답 반환
     res.status(200).json({
+      success: true,
       message: "카드가 성공적으로 조회되었습니다.",
       card,
     });
@@ -55,6 +60,7 @@ class CardController {
 
     // 응답 반환
     res.status(200).json({
+      success: true,
       message: "카드가 성공적으로 삭제되었습니다.",
     });
   });
@@ -65,20 +71,22 @@ class CardController {
   static updateCard = asyncHandler(async (req: Request, res: Response) => {
     const userId = req.user?.userId;
     const { cardUuid } = req.params;
-    const { content, startTime, endTime, orderIndex, locked, location } = req.body;
+    const { content, startTime, endTime, orderIndex, locked, location } =
+      req.body;
 
     // 카드 수정
     await CardService.updateCard(userId, cardUuid, {
       content,
-      startTime: dayjs(startTime),
-      endTime: dayjs(endTime),
+      startTime: dayjs(startTime, "HH:mm:ss"),
+      endTime: dayjs(endTime, "HH:mm:ss"),
       orderIndex,
       locked,
-      location
+      location,
     });
 
     // 응답 반환
     res.status(200).json({
+      success: true,
       message: "카드가 성공적으로 수정되었습니다.",
     });
   });
@@ -95,6 +103,7 @@ class CardController {
 
     // 응답 반환
     res.status(200).json({
+      success: true,
       message: "카드가 성공적으로 이동되었습니다.",
     });
   });
@@ -111,6 +120,7 @@ class CardController {
 
     // 응답 반환
     res.status(201).json({
+      success: true,
       message: "카드가 성공적으로 복제되었습니다.",
       cardUuid: newCardUuid,
     });
@@ -127,10 +137,15 @@ class CardController {
     const location = await CardService.getLocation(userId, cardUuid);
 
     // 응답 반환
-    res.status(200).json({
-      message: "카드 위치 정보가 성공적으로 조회되었습니다.",
-      location,
-    });
+    if (location) {
+      res.status(200).json({
+        success: true,
+        message: "카드 위치 정보가 성공적으로 조회되었습니다.",
+        location,
+      });
+    } else {
+      res.status(204).send();
+    }
   });
 }
 

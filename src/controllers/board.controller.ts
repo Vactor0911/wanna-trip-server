@@ -19,6 +19,7 @@ class BoardController {
 
     // 응답 반환
     res.status(201).json({
+      success: true,
       message: "보드가 성공적으로 생성되었습니다.",
       boardUuid,
     });
@@ -36,7 +37,25 @@ class BoardController {
 
     // 응답 반환
     res.status(200).json({
+      success: true,
       message: "보드가 성공적으로 삭제되었습니다.",
+    });
+  });
+
+  /**
+   * 보드 초기화
+   */
+  static clearBoard = asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user?.userId;
+    const { boardUuid } = req.params;
+
+    // 보드 초기화
+    await BoardService.clearBoard(userId, boardUuid);
+
+    // 응답 반환
+    res.status(200).json({
+      success: true,
+      message: "보드가 성공적으로 초기화되었습니다.",
     });
   });
 
@@ -52,6 +71,7 @@ class BoardController {
 
     // 응답 반환
     res.status(201).json({
+      success: true,
       message: "보드가 성공적으로 복제되었습니다.",
       boardUuid: newBoardUuid,
     });
@@ -69,6 +89,7 @@ class BoardController {
 
     // 응답 반환
     res.status(200).json({
+      success: true,
       message: "보드가 성공적으로 이동되었습니다.",
     });
   });
@@ -85,6 +106,7 @@ class BoardController {
 
     // 응답 반환
     res.status(200).json({
+      success: true,
       message: "보드 내 카드가 성공적으로 정렬되었습니다.",
     });
   });

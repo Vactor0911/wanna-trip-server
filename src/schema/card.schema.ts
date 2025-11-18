@@ -1,4 +1,5 @@
 import z from "zod";
+import { parseTimeString } from "../utils";
 
 /**
  * 카드 생성 스키마
@@ -9,7 +10,7 @@ export const createCardSchema = z.object({
     .number("인덱스는 숫자여야 합니다.")
     .min(1, "인덱스는 최소 1 이상이어야 합니다.")
     .optional(),
-  startTime: z.string().refine((date) => !isNaN(Date.parse(date)), {
+  startTime: z.string().refine((date) => !!parseTimeString(date), {
     message: "유효한 날짜 형식이어야 합니다.",
   }),
   location: z
@@ -46,10 +47,10 @@ export const updateCardParamsSchema = z.object({
 });
 export const updateCardBodySchema = z.object({
   content: z.string("카드 내용은 문자열이어야 합니다."),
-  startTime: z.string().refine((date) => !isNaN(Date.parse(date)), {
+  startTime: z.string().refine((date) => !!parseTimeString(date), {
     message: "유효한 날짜 형식이어야 합니다.",
   }),
-  endTime: z.string().refine((date) => !isNaN(Date.parse(date)), {
+  endTime: z.string().refine((date) => !!parseTimeString(date), {
     message: "유효한 날짜 형식이어야 합니다.",
   }),
   orderIndex: z
