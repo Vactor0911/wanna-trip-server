@@ -153,8 +153,6 @@ class CardService {
       };
     }
   ) {
-    console.log(data);
-
     await TransactionHandler.executeInTransaction(
       dbPool,
       async (connection) => {
