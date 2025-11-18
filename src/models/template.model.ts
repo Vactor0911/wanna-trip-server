@@ -72,7 +72,7 @@ class TemplateModel {
    * 사용자 id로 모든 템플릿 조회
    * @param userId 사용자 id
    * @param connection 데이터베이스 연결 객체
-   * @returns 
+   * @returns
    */
   static async findAllByUserId(
     userId: string,
@@ -141,8 +141,9 @@ class TemplateModel {
     // TODO: LIMIT 값 조정 및 페이지네이션 기능 구현 필요
     const templates = await connection.execute(
       `
-        SELECT *
-        FROM template
+        SELECT t.template_uuid, t.title, t.created_at, t.shared_count, u.name AS owner_name
+        FROM template t
+        JOIN user u ON t.user_id = u.user_id
         ORDER BY shared_count DESC
         LIMIT 10
       `
