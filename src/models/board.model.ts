@@ -74,7 +74,7 @@ class BoardModel {
     // 기존 카드 조회
     const cards = await connection.execute(
       `
-      SELECT content, start_time, end_time, order_index
+      SELECT card_id, content, start_time, end_time, order_index
       FROM card
       WHERE board_id = ?;
       `,
@@ -93,13 +93,14 @@ class BoardModel {
 
     // 카드 복제
     for (const card of cards) {
+      const cardUuid = uuidv4();
       await connection.execute(
         `
         INSERT INTO card (card_uuid, board_id, content, start_time, end_time, order_index)
         VALUES (?, ?, ?, ?, ?, ?);
       `,
         [
-          uuidv4(),
+          cardUuid,
           newBoard.board_id,
           card.content,
           card.start_time,
@@ -107,6 +108,46 @@ class BoardModel {
           card.order_index,
         ]
       );
+
+      // 새로 생성된 카드 ID 조회
+      const [newCard] = await connection.execute(
+        `
+        SELECT card_id
+        FROM card
+        WHERE card_uuid = ?;
+        `,
+        [cardUuid]
+      );
+
+      // 기존 카드와 연결된 장소 조회
+      const locations = await connection.execute(
+        `
+        SELECT title, address, latitude, longitude, category, thumbnail_url, duration
+        FROM location
+        WHERE card_id = ?;
+        `,
+        [card.card_id]
+      );
+
+      // 장소 복제
+      for (const location of locations) {
+        await connection.execute(
+          `
+          INSERT INTO location (card_id, title, address, latitude, longitude, category, thumbnail_url, duration)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+          `,
+          [
+            newCard.card_id,
+            location.title,
+            location.address,
+            location.latitude,
+            location.longitude,
+            location.category,
+            location.thumbnail_url,
+            location.duration,
+          ]
+        );
+      }
     }
 
     // 생성된 보드 UUID 반환
