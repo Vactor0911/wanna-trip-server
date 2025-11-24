@@ -11,12 +11,14 @@ import CollaboratorController from "../controllers/collaborator.controller";
 
 const collaboratorRoute = express.Router();
 
+// CSRF 보호 미들웨어 적용
+collaboratorRoute.use(csrfProtection);
+
 // 공동 작업자 목록 조회
 collaboratorRoute.get(
   "/:templateUuid",
   limiter,
   authenticateToken,
-  csrfProtection,
   validateParams(getCollaboratorsSchema),
   CollaboratorController.getCollaborators
 );
@@ -26,7 +28,6 @@ collaboratorRoute.post(
   "/",
   limiter,
   authenticateToken,
-  csrfProtection,
   validateBody(addCollaboratorSchema),
   CollaboratorController.addCollaborator
 );
@@ -36,7 +37,6 @@ collaboratorRoute.delete(
   "/",
   limiter,
   authenticateToken,
-  csrfProtection,
   validateBody(removeCollaboratorSchema),
   CollaboratorController.removeCollaborator
 );
