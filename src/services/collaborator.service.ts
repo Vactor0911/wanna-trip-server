@@ -25,7 +25,7 @@ class CollaboratorService {
 
     // 공동 작업자 목록 조회
     const collaborators = await CollaboratorModel.findAllByTemplateId(
-      templateUuid,
+      template.template_id,
       dbPool
     );
 

@@ -34,7 +34,7 @@ class CollaboratorModel {
   ) {
     const collaborators = await connection.execute(
       `
-        SELECT u.user_uuid, u.email, u.name
+        SELECT u.user_uuid, u.email, u.name, u.profile_image
         FROM collaborator c
         JOIN user u ON c.user_id = u.user_id
         WHERE template_id = ?
@@ -58,7 +58,7 @@ class CollaboratorModel {
   ) {
     const [collaborator] = await connection.execute(
       `
-        SELECT u.user_uuid, u.email, u.name
+        SELECT u.user_uuid, u.email, u.name, u.profile_image
         FROM collaborator c
         JOIN user u ON c.user_id = u.user_id
         WHERE c.template_id = ? AND c.user_id = ?
