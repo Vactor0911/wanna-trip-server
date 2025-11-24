@@ -80,9 +80,20 @@ class TemplateModel {
   ) {
     const templates = await connection.execute(
       `
-        SELECT *
-        FROM template
-        WHERE user_id = ?
+        SELECT 
+          t.*,
+          (
+            SELECT l.thumbnail_url
+            FROM board b
+            JOIN card c ON b.board_id = c.board_id
+            JOIN location l ON c.card_id = l.card_id
+            WHERE b.template_id = t.template_id
+              AND l.thumbnail_url IS NOT NULL
+            ORDER BY b.day_number ASC, c.order_index ASC
+            LIMIT 1
+          ) AS thumbnail_url
+        FROM template t
+        WHERE t.user_id = ?
       `,
       [userId]
     );
@@ -141,7 +152,22 @@ class TemplateModel {
     // TODO: LIMIT 값 조정 및 페이지네이션 기능 구현 필요
     const templates = await connection.execute(
       `
-        SELECT t.template_uuid, t.title, t.created_at, t.shared_count, u.name AS owner_name
+        SELECT 
+          t.template_uuid, 
+          t.title, 
+          t.created_at, 
+          t.shared_count, 
+          u.name AS owner_name,
+          (
+            SELECT l.thumbnail_url
+            FROM board b
+            JOIN card c ON b.board_id = c.board_id
+            JOIN location l ON c.card_id = l.card_id
+            WHERE b.template_id = t.template_id
+              AND l.thumbnail_url IS NOT NULL
+            ORDER BY b.day_number ASC, c.order_index ASC
+            LIMIT 1
+          ) AS thumbnail_url
         FROM template t
         JOIN user u ON t.user_id = u.user_id
         ORDER BY shared_count DESC

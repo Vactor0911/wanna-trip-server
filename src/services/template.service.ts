@@ -191,6 +191,7 @@ class TemplateService {
       createdAt: template.created_at,
       updatedAt: template.updated_at,
       sharedCount: template.shared_count,
+      thumbnailUrl: template.thumbnail_url,
       boards: template.boards?.map((board: any) => ({
         uuid: board.board_uuid,
         dayNumber: board.day_number,
@@ -228,6 +229,7 @@ class TemplateService {
       createdAt: template.created_at,
       sharedCount: template.shared_count,
       ownerName: template.owner_name,
+      thumbnailUrl: template.thumbnail_url,
     }
   }
 
