@@ -67,7 +67,7 @@ authRoute.post("/me/delete", csrfProtection, limiter, authenticateToken, deleteA
 // 프로필 이미지 업로드
 authRoute.post("/me/profile-image", csrfProtection, limiter, authenticateToken, uploadProfileImage);
 
-// 비밀번호 재설정 관련 ( 로그인 안한 상태) - 미연동
+// 비밀번호 재설정 관련 ( 로그인 안한 상태)
 authRoute.post("/resetPassword", csrfProtection, resetPassword);
 
 
