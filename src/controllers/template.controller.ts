@@ -71,7 +71,7 @@ class TemplateController {
     // 템플릿 수정 권한 확인
     let isOwner: boolean;
     try {
-      await TemplateService.validateTemplatePermissionByUuid(
+      await TemplateService.validateEditPermissionByUuid(
         userId,
         templateUuid
       );

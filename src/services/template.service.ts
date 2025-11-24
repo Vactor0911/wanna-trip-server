@@ -2,6 +2,7 @@ import { dbPool } from "../config/db";
 import { ForbiddenError, NotFoundError } from "../errors/CustomErrors";
 import BoardModel from "../models/board.model";
 import CardModel from "../models/card.model";
+import CollaboratorModel from "../models/collaborator.model";
 import LocationModel from "../models/location.model";
 import TemplateModel from "../models/template.model";
 import TransactionHandler from "../utils/transactionHandler";
@@ -50,7 +51,7 @@ class TemplateService {
       dbPool,
       async (connection) => {
         // 템플릿 수정 권한 확인
-        await this.validateTemplatePermissionByUuid(userId, templateUuid);
+        await this.validateEditPermissionByUuid(userId, templateUuid);
 
         // 템플릿 삭제
         await TemplateModel.deleteByUuid(templateUuid, connection);
@@ -81,8 +82,8 @@ class TemplateService {
    * @returns 조회된 템플릿
    */
   static async getTemplateByUuid(userId: string, templateUuid: string) {
-    // 템플릿 수정 권한 확인
-    await this.validateTemplatePermissionByUuid(userId, templateUuid);
+    // 템플릿 조회 권한 확인
+    await this.validateReadPermissionByUuid(userId, templateUuid);
 
     // 템플릿 조회
     const template = await TemplateModel.findByUuid(templateUuid, dbPool);
@@ -128,7 +129,7 @@ class TemplateService {
     title: string
   ) {
     // 템플릿 수정 권한 확인
-    await this.validateTemplatePermissionByUuid(userId, templateUuid);
+    await this.validateEditPermissionByUuid(userId, templateUuid);
 
     // 템플릿 수정
     await TemplateModel.updateByUuid(templateUuid, title, dbPool);
@@ -150,16 +151,65 @@ class TemplateService {
   }
 
   /**
+   * 템플릿 id로 조회 권한 검증
+   * @param userId 사용자 id
+   * @param templateId 템플릿 id
+   */
+  static async validateReadPermissionById(userId: string, templateId: string) {
+    // 템플릿 조회
+    const template = await TemplateModel.findById(templateId, dbPool);
+    if (!template) {
+      throw new NotFoundError("템플릿을 찾을 수 없습니다.");
+    }
+
+    // 템플릿 공개 설정 확인
+    if (template.privacy === "private" && template.user_id !== userId) {
+      throw new ForbiddenError("템플릿 조회 권한이 없습니다.");
+    }
+  }
+
+  /**
+   * 템플릿 uuid로 조회 권한 검증
+   * @param userId 사용자 id
+   * @param templateUuid 템플릿 uuid
+   */
+  static async validateReadPermissionByUuid(
+    userId: string,
+    templateUuid: string
+  ) {
+    // 템플릿 조회
+    const template = await TemplateModel.findByUuid(templateUuid, dbPool);
+    if (!template) {
+      throw new NotFoundError("템플릿을 찾을 수 없습니다.");
+    }
+
+    // 템플릿 id로 권한 검증
+    await this.validateReadPermissionById(userId, template.template_id);
+  }
+
+  /**
    * 템플릿 id로 수정 권한 검증
    * @param userId 사용자 id
    * @param templateId 템플릿 id
    */
-  static async validateTemplatePermissionById(
-    userId: string,
-    templateId: string
-  ) {
+  static async validateEditPermissionById(userId: string, templateId: string) {
+    // 템플릿 조회
     const template = await TemplateModel.findById(templateId, dbPool);
-    if (!template || template.user_id !== userId) {
+    if (!template) {
+      throw new NotFoundError("템플릿을 찾을 수 없습니다.");
+    }
+
+    // 공동 작업자 조회
+    const collaborators = await CollaboratorModel.findAllByTemplateId(
+      template.template_id,
+      dbPool
+    );
+    const isCollaborator = collaborators.some(
+      (collaborator: any) => collaborator.user_id === userId
+    );
+
+    // 권한 검증
+    if (template.user_id !== userId && !isCollaborator) {
       throw new ForbiddenError("템플릿 수정 권한이 없습니다.");
     }
   }
@@ -169,14 +219,18 @@ class TemplateService {
    * @param userId 사용자 id
    * @param templateUuid 템플릿 uuid
    */
-  static async validateTemplatePermissionByUuid(
+  static async validateEditPermissionByUuid(
     userId: string,
     templateUuid: string
   ) {
+    // 템플릿 조회
     const template = await TemplateModel.findByUuid(templateUuid, dbPool);
-    if (!template || template.user_id !== userId) {
-      throw new ForbiddenError("템플릿 수정 권한이 없습니다.");
+    if (!template) {
+      throw new NotFoundError("템플릿을 찾을 수 없습니다.");
     }
+
+    // 템플릿 id로 권한 검증
+    await this.validateEditPermissionById(userId, template.template_id);
   }
 
   /**
@@ -228,7 +282,7 @@ class TemplateService {
       createdAt: template.created_at,
       sharedCount: template.shared_count,
       ownerName: template.owner_name,
-    }
+    };
   }
 
   /**
@@ -271,7 +325,7 @@ class TemplateService {
         }
 
         // 템플릿 수정 권한 확인
-        await this.validateTemplatePermissionById(userId, template.template_id);
+        await this.validateEditPermissionById(userId, template.template_id);
 
         // 템플릿 내 모든 보드 조회
         const boards = await BoardModel.findAllByTemplateId(
