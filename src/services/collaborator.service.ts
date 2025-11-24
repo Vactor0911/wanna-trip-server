@@ -111,11 +111,8 @@ class CollaboratorService {
           throw new NotFoundError("템플릿을 찾을 수 없습니다.");
         }
 
-        // 템플릿 편집 권한 확인
-        await TemplateService.validateEditPermissionById(
-          userId,
-          template.template_id
-        );
+        // 템플릿 소유자 권한 확인
+        await TemplateService.validateOwnerById(userId, template.template_id);
 
         // 사용자 조회
         const collaborator = await AuthModel.findByUuid(
