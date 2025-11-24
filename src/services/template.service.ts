@@ -295,6 +295,25 @@ class TemplateService {
   }
 
   /**
+   * 템플릿 공개 설정 조회
+   * @param userId 사용자 id
+   * @param templateUuid 템플릿 uuid
+   * @returns 템플릿 공개 설정
+   */
+  static async getTemplatePrivacy(userId: string, templateUuid: string) {
+    // 템플릿 소유자 확인
+    await this.validateOwnerByUuid(userId, templateUuid);
+
+    // 템플릿 조회
+    const template = await TemplateModel.findByUuid(templateUuid, dbPool);
+    if (!template) {
+      throw new NotFoundError("템플릿을 찾을 수 없습니다.");
+    }
+
+    return template.privacy;
+  }
+
+  /**
    * 템플릿 객체 포맷팅
    * @param template 템플릿 객체
    * @returns 포맷팅된 템플릿 객체

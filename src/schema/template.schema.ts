@@ -55,3 +55,10 @@ export const updateTemplatePrivacyBodySchema = z.object({
     message: "템플릿 권한 설정이 올바르지 않습니다.",
   }),
 });
+
+/**
+ * 템플릿 공개 설정 조회 스키마
+ */
+export const getTemplatePrivacySchema = z.object({
+  templateUuid: z.uuid("템플릿 UUID 형식이 올바르지 않습니다."),
+});

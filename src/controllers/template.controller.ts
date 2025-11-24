@@ -161,6 +161,29 @@ class TemplateController {
       });
     }
   );
+
+  /**
+   * 템플릿 공개 설정 조회
+   */
+  static getTemplatePrivacy = asyncHandler(
+    async (req: Request, res: Response) => {
+      const userId = req?.user?.userId!;
+      const { templateUuid } = req.params;
+
+      // 템플릿 공개 설정 조회
+      const privacy = await TemplateService.getTemplatePrivacy(
+        userId,
+        templateUuid
+      );
+
+      // 응답 반환
+      res.status(200).json({
+        success: true,
+        message: "템플릿의 공개 설정이 성공적으로 조회되었습니다.",
+        privacy,
+      });
+    }
+  );
 }
 
 export default TemplateController;
