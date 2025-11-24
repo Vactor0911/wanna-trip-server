@@ -1,5 +1,5 @@
 import express from "express";
-import { limiter } from "../utils";
+import { csrfProtection, limiter } from "../utils";
 import { authenticateToken } from "../middleware/authenticate";
 import { validateBody, validateParams } from "../middleware/validation";
 import {
@@ -16,6 +16,7 @@ collaboratorRoute.get(
   "/:templateUuid",
   limiter,
   authenticateToken,
+  csrfProtection,
   validateParams(getCollaboratorsSchema),
   CollaboratorController.getCollaborators
 );
@@ -25,6 +26,7 @@ collaboratorRoute.post(
   "/",
   limiter,
   authenticateToken,
+  csrfProtection,
   validateBody(addCollaboratorSchema),
   CollaboratorController.addCollaborator
 );
@@ -34,6 +36,7 @@ collaboratorRoute.delete(
   "/",
   limiter,
   authenticateToken,
+  csrfProtection,
   validateBody(removeCollaboratorSchema),
   CollaboratorController.removeCollaborator
 );
