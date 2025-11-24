@@ -17,7 +17,7 @@ export const getPostsByPage = async (req: Request, res: Response) => {
     const posts = await dbPool.query(
       `
       SELECT 
-        p.post_uuid, p.title, p.tag, p.shares,
+        p.post_uuid, p.title, p.tag, p.shares, p.content,
         COALESCE(l.like_count, 0) AS like_count,
         IF(l2.user_uuid IS NULL, 0, 1) AS liked,
         COALESCE(c.comments, 0) AS comments
@@ -78,9 +78,10 @@ export const getPostsByPage = async (req: Request, res: Response) => {
       liked: req.user ? !!post.liked : false,
       likes: Number(post.like_count || 0),
       shares: Number(post.shares || 0),
+      content: post.content,
       comments: Number(post.comments || 0),
     }));
-
+    
     // 검색 결과 반환
     res.status(200).json({
       success: true,
