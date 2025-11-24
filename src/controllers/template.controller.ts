@@ -68,13 +68,10 @@ class TemplateController {
       templateUuid
     );
 
-    // 템플릿 수정 권한 확인
-    let isOwner: boolean;
+    // 소유자 여부 확인
+    let isOwner = false;
     try {
-      await TemplateService.validateEditPermissionByUuid(
-        userId,
-        templateUuid
-      );
+      await TemplateService.validateOwnerByUuid(userId, templateUuid);
       isOwner = true;
     } catch (error) {
       isOwner = false;
@@ -114,7 +111,7 @@ class TemplateController {
     async (req: Request, res: Response) => {
       // 인기 템플릿 조회
       const popularTemplates = await TemplateService.getPopularTemplates();
-      
+
       // 응답 반환
       res.status(200).json({
         success: true,

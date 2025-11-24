@@ -15,6 +15,7 @@ import {
   postRoute,
   searchRoute,
   templateRoute,
+  collaboratorRoute,
 } from "./routes";
 
 // .env 파일 로드
@@ -100,6 +101,7 @@ app.use("/board", boardRoute); // 보드 관련
 app.use("/card", cardRoute); // 카드 관련
 app.use("/naver-map", searchRoute); // 네이버 지도 검색
 app.use("/post", postRoute); // 게시글 관련
+app.use("/collaborator", collaboratorRoute); // 공동 작업자 관련
 
 // *** 라우트 정의 끝 ***
 

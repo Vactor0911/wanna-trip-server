@@ -4,7 +4,7 @@ class CollaboratorModel {
   /**
    * 공동 작업자 추가
    * @param templateId 템플릿 id
-   * @param userId 사용자 id
+   * @param userId 공동 작업자 id
    * @param connection 데이터베이스 연결 객체
    */
   static async create(
@@ -42,6 +42,30 @@ class CollaboratorModel {
       [templateId]
     );
     return collaborators;
+  }
+
+  /**
+   * 템플릿 id와 사용자 id로 공동 작업자 조회
+   * @param templateId 템플릿 id
+   * @param userId 사용자 id
+   * @param connection 데이터베이스 연결 객체
+   * @returns 조회된 공동 작업자
+   */
+  static async findByTemplateIdAndUserId(
+    templateId: string,
+    userId: string,
+    connection: PoolConnection | Pool
+  ) {
+    const [collaborator] = await connection.execute(
+      `
+        SELECT u.user_uuid, u.email, u.name
+        FROM collaborator c
+        JOIN user u ON c.user_id = u.user_id
+        WHERE c.template_id = ? AND c.user_id = ?
+      `,
+      [templateId, userId]
+    );
+    return collaborator;
   }
 
   /**

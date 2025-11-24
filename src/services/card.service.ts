@@ -351,7 +351,7 @@ class CardService {
         }
 
         // 템플릿 조회 권한 확인
-        await TemplateService.validateEditPermissionById(
+        await TemplateService.validateReadPermissionById(
           userId,
           template.template_id
         );

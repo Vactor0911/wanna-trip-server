@@ -151,6 +151,40 @@ class TemplateService {
   }
 
   /**
+   * 템플릿 id로 소유자 검증
+   * @param userId 사용자 id
+   * @param templateId 템플릿 id
+   */
+  static async validateOwnerById(userId: string, templateId: string) {
+    // 템플릿 조회
+    const template = await TemplateModel.findById(templateId, dbPool);
+    if (!template) {
+      throw new NotFoundError("템플릿을 찾을 수 없습니다.");
+    }
+
+    // 소유자 검증
+    if (template.user_id !== userId) {
+      throw new ForbiddenError("템플릿 소유자 권한이 없습니다.");
+    }
+  }
+
+  /**
+   * 템플릿 uuid로 소유자 검증
+   * @param userId 사용자 id
+   * @param templateUuid 템플릿 uuid
+   */
+  static async validateOwnerByUuid(userId: string, templateUuid: string) {
+    // 템플릿 조회
+    const template = await TemplateModel.findByUuid(templateUuid, dbPool);
+    if (!template) {
+      throw new NotFoundError("템플릿을 찾을 수 없습니다.");
+    }
+
+    // 템플릿 id로 소유자 검증
+    await this.validateOwnerById(userId, template.template_id);
+  }
+
+  /**
    * 템플릿 id로 조회 권한 검증
    * @param userId 사용자 id
    * @param templateId 템플릿 id
