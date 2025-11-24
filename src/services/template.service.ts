@@ -5,6 +5,7 @@ import CardModel from "../models/card.model";
 import CollaboratorModel from "../models/collaborator.model";
 import LocationModel from "../models/location.model";
 import TemplateModel from "../models/template.model";
+import UserModel from "../models/user.model";
 import TransactionHandler from "../utils/transactionHandler";
 
 class TemplateService {
@@ -233,13 +234,19 @@ class TemplateService {
       throw new NotFoundError("템플릿을 찾을 수 없습니다.");
     }
 
+    // 사용자 조회
+    const user = await UserModel.findById(userId, dbPool);
+    if (!user) {
+      throw new NotFoundError("사용자를 찾을 수 없습니다.");
+    }
+
     // 공동 작업자 조회
     const collaborators = await CollaboratorModel.findAllByTemplateId(
       template.template_id,
       dbPool
     );
     const isCollaborator = collaborators.some(
-      (collaborator: any) => collaborator.user_id === userId
+      (collaborator: any) => collaborator.user_uuid === user.user_uuid
     );
 
     // 권한 검증
