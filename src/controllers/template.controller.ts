@@ -137,6 +137,30 @@ class TemplateController {
       message: "템플릿 내 모든 보드의 카드가 성공적으로 정렬되었습니다.",
     });
   });
+
+  /**
+   * 템플릿 권한 설정 변경
+   */
+  static updateTemplatePrivacy = asyncHandler(
+    async (req: Request, res: Response) => {
+      const userId = req?.user?.userId!;
+      const { templateUuid } = req.params;
+      const { privacy } = req.body;
+
+      // 템플릿 권한 설정 변경
+      await TemplateService.updateTemplatePrivacy(
+        userId,
+        templateUuid,
+        privacy
+      );
+
+      // 응답 반환
+      res.status(200).json({
+        success: true,
+        message: "템플릿의 권한 설정이 성공적으로 변경되었습니다.",
+      });
+    }
+  );
 }
 
 export default TemplateController;

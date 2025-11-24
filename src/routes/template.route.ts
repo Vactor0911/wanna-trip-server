@@ -10,6 +10,8 @@ import {
   sortCardsSchema,
   updateTemplateBodySchema,
   updateTemplateParamsSchema,
+  updateTemplatePrivacyBodySchema,
+  updateTemplatePrivacyParamsSchema,
 } from "../schema/template.schema";
 
 const templateRouter = express.Router();
@@ -50,6 +52,17 @@ templateRouter.put(
   validateParams(sortCardsSchema),
   TemplateController.sortCards
 );
+
+// 템플릿 권한 설정 변경
+templateRouter.put(
+  "/privacy/:templateUuid",
+  limiter,
+  authenticateToken,
+  csrfProtection,
+  validateParams(updateTemplatePrivacyParamsSchema),
+  validateBody(updateTemplatePrivacyBodySchema),
+  TemplateController.updateTemplatePrivacy
+)
 
 // UUID로 템플릿 수정
 templateRouter.put(

@@ -268,6 +268,33 @@ class TemplateService {
   }
 
   /**
+   * 템플릿 권한 설정 변경
+   * @param userId 사용자 id
+   * @param templateUuid 템플릿 uuid
+   * @param privacy 템플릿 공개 설정
+   */
+  static async updateTemplatePrivacy(
+    userId: string,
+    templateUuid: string,
+    privacy: string
+  ) {
+    await TransactionHandler.executeInTransaction(
+      dbPool,
+      async (connection) => {
+        // 템플릿 소유자 확인
+        await this.validateOwnerByUuid(userId, templateUuid);
+
+        // 템플릿 권한 설정 변경
+        await TemplateModel.updatePrivacyByUuid(
+          templateUuid,
+          privacy,
+          connection
+        );
+      }
+    );
+  }
+
+  /**
    * 템플릿 객체 포맷팅
    * @param template 템플릿 객체
    * @returns 포맷팅된 템플릿 객체
