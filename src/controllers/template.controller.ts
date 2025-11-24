@@ -68,13 +68,13 @@ class TemplateController {
       templateUuid
     );
 
-    // 소유자 여부 확인
-    let isOwner = false;
+    // 템플릿 편집 권한 확인
+    let hasPermission = false;
     try {
-      await TemplateService.validateOwnerByUuid(userId, templateUuid);
-      isOwner = true;
+      await TemplateService.validateEditPermissionByUuid(userId, templateUuid);
+      hasPermission = true;
     } catch (error) {
-      isOwner = false;
+      hasPermission = false;
     }
 
     // 응답 반환
@@ -82,7 +82,7 @@ class TemplateController {
       success: true,
       message: "템플릿이 성공적으로 조회되었습니다.",
       template,
-      isOwner,
+      hasPermission,
     });
   });
 
