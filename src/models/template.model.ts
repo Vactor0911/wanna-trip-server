@@ -176,6 +176,27 @@ class TemplateModel {
     );
     return templates;
   }
+
+  /**
+   * 템플릿 uuid로 템플릿 공개 설정 수정
+   * @param templateUuid 템플릿 uuid
+   * @param privacy 템플릿 공개 설정
+   * @param connection 데이터베이스 연결 객체
+   */
+  static async updatePrivacyByUuid(
+    templateUuid: string,
+    privacy: string,
+    connection: PoolConnection | Pool
+  ) {
+    await connection.execute(
+      `
+        UPDATE template
+        SET privacy = ?
+        WHERE template_uuid = ?
+      `,
+      [privacy, templateUuid]
+    );
+  }
 }
 
 export default TemplateModel;

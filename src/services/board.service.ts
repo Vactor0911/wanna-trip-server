@@ -21,7 +21,7 @@ class BoardService {
       dbPool,
       async (connection) => {
         // 템플릿 수정 권한 확인
-        await TemplateService.validateTemplatePermissionByUuid(
+        await TemplateService.validateEditPermissionByUuid(
           userId,
           templateUuid
         );
@@ -61,7 +61,7 @@ class BoardService {
         }
 
         // 템플릿 수정 권한 확인
-        await TemplateService.validateTemplatePermissionById(
+        await TemplateService.validateEditPermissionById(
           userId,
           board.template_id
         );
@@ -91,7 +91,7 @@ class BoardService {
         }
 
         // 템플릿 수정 권한 확인
-        await TemplateService.validateTemplatePermissionById(
+        await TemplateService.validateEditPermissionById(
           userId,
           board.template_id
         );
@@ -118,7 +118,7 @@ class BoardService {
         }
 
         // 템플릿 수정 권한 확인
-        await TemplateService.validateTemplatePermissionById(
+        await TemplateService.validateEditPermissionById(
           userId,
           board.template_id
         );
@@ -149,7 +149,7 @@ class BoardService {
         }
 
         // 템플릿 수정 권한 확인
-        await TemplateService.validateTemplatePermissionById(
+        await TemplateService.validateEditPermissionById(
           userId,
           board.template_id
         );
@@ -179,7 +179,7 @@ class BoardService {
         }
 
         // 템플릿 수정 권한 확인
-        await TemplateService.validateTemplatePermissionById(
+        await TemplateService.validateEditPermissionById(
           userId,
           board.template_id
         );

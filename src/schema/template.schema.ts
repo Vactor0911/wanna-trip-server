@@ -43,3 +43,22 @@ export const updateTemplateBodySchema = z.object({
 export const sortCardsSchema = z.object({
   templateUuid: z.uuid("템플릿 UUID 형식이 올바르지 않습니다."),
 });
+
+/**
+ * 템플릿 권한 설정 변경 스키마
+ */
+export const updateTemplatePrivacyParamsSchema = z.object({
+  templateUuid: z.uuid("템플릿 UUID 형식이 올바르지 않습니다."),
+});
+export const updateTemplatePrivacyBodySchema = z.object({
+  privacy: z.enum(["private", "public", "link"], {
+    message: "템플릿 권한 설정이 올바르지 않습니다.",
+  }),
+});
+
+/**
+ * 템플릿 공개 설정 조회 스키마
+ */
+export const getTemplatePrivacySchema = z.object({
+  templateUuid: z.uuid("템플릿 UUID 형식이 올바르지 않습니다."),
+});

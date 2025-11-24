@@ -5,6 +5,8 @@ import boardRoute from "./board.route";
 import cardRoute from "./card.route";
 import searchRoute from "./searchRoute";
 import postRoute from "./postRoute";
+import collaboratorRoute from "./collaborator.route";
+import userRouter from "./user.route";
 
 export {
   authRoute,
@@ -14,4 +16,6 @@ export {
   cardRoute,
   searchRoute,
   postRoute,
+  collaboratorRoute,
+  userRouter,
 };
