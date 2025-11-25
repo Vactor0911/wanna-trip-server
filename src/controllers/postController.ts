@@ -17,7 +17,7 @@ export const getPostsByPage = async (req: Request, res: Response) => {
     const posts = await dbPool.query(
       `
       SELECT 
-        p.post_uuid, p.title, p.tag, p.shares, p.content, p.template_uuid,
+        p.post_uuid, p.title, p.tag, p.shares, p.content, p.template_uuid, p.views, p.created_at,
         COALESCE(l.like_count, 0) AS like_count,
         IF(l2.user_uuid IS NULL, 0, 1) AS liked,
         COALESCE(c.comments, 0) AS comments,
@@ -73,11 +73,12 @@ export const getPostsByPage = async (req: Request, res: Response) => {
       ]
     );
 
-    // 게시글 없음
+    // 게시글 없음 - 빈 배열 반환 (검색 결과 없음 포함)
     if (posts.length === 0) {
-      res.status(404).json({
-        success: false,
-        message: "게시글을 찾을 수 없습니다.",
+      res.status(200).json({
+        success: true,
+        post: [],
+        message: "게시글이 없습니다.",
       });
       return;
     }
@@ -103,9 +104,11 @@ export const getPostsByPage = async (req: Request, res: Response) => {
         liked: req.user ? !!post.liked : false,
         likes: Number(post.like_count || 0),
         shares: Number(post.shares || 0),
+        views: Number(post.views || 0),
         content: post.content,
         comments: Number(post.comments || 0),
         thumbnail, // 썸네일 (내용 이미지 > 템플릿 썸네일)
+        createdAt: post.created_at, // 작성일
       };
     });
     
@@ -125,13 +128,13 @@ export const getPostsByPage = async (req: Request, res: Response) => {
 
 // 인기 게시글 목록 조회
 export const getPopularPosts = async (req: Request, res: Response) => {
-  const RESULT_LENGTH = 10; // 조회할 인기 게시글 수
+  const RESULT_LENGTH = 3; // 조회할 인기 게시글 수
   try {
     // 좋아요 수가 많은 게시글 조회
     const posts = await dbPool.query(
       `
       SELECT 
-        p.post_uuid, p.title, p.content, p.shares, p.template_uuid,
+        p.post_uuid, p.title, p.content, p.shares, p.template_uuid, p.views,
         u.name AS author_name, 
         u.profile_image AS author_profile_image,
         COALESCE(l.like_count, 0) AS like_count,
@@ -215,6 +218,7 @@ export const getPopularPosts = async (req: Request, res: Response) => {
         liked: req.user ? !!post.liked : false,
         likes: Number(post.like_count || 0),
         shares: Number(post.shares || 0),
+        views: Number(post.views || 0),
         comments: Number(post.comments || 0),
         thumbnail, // 썸네일 (내용 이미지 > 템플릿 썸네일)
       };
@@ -238,6 +242,12 @@ export const getPopularPosts = async (req: Request, res: Response) => {
 export const getPostByUuid = async (req: Request, res: Response) => {
   try {
     const { postUuid } = req.params;
+
+    // 조회수 증가 (게시글 조회 시마다 1씩 증가)
+    await dbPool.query(
+      `UPDATE post SET views = views + 1 WHERE post_uuid = ?`,
+      [postUuid]
+    );
 
     // post 테이블에서 해당 UUID의 게시글 정보 가져오기
     const posts = await dbPool.query(
