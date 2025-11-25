@@ -75,35 +75,23 @@ export const initializeSocketServer = (httpServer: HttpServer) => {
       }
     });
 
-    /**
-     * 템플릿 이벤트
-     */
+    // 템플릿 패치 요청
+    socket.on("template:fetch", () => {
+      try {
+        const templateUuid = socket.data.templateUuid;
+        const userUuid = socket.data.userUuid;
 
-    // 템플릿 이름 변경
-    socket.on("template:update", (data: { title: string }) => {
-      TemplateSocket.updateTemplate(socket, data.title);
-    });
-
-    /**
-     * 보드 이벤트
-     */
-
-    // 보드 추가
-    socket.on("board:add", (data: { boardUuid: string; dayNumber: number }) => {
-      BoardSocket.addBoard(socket, data.boardUuid, data.dayNumber);
-    });
-
-    // 보드 복제
-    socket.on(
-      "board:copy",
-      (data: { boardUuid: string; newBoardUuid: string }) => {
-        BoardSocket.copyBoard(socket, data.boardUuid, data.newBoardUuid);
+        // 템플릿 수정 메시지 전송
+        socket.to(`template:${templateUuid}`).emit("template:fetch", {
+          userUuid,
+          timestamp: new Date().toISOString(),
+        });
+      } catch (error) {
+        console.error("Template fetch error:", error);
+        socket.emit("error", {
+          message: "템플릿 패치 중 오류가 발생했습니다.",
+        });
       }
-    );
-
-    // 보드 삭제
-    socket.on("board:delete", (data: { boardUuid: string }) => {
-      BoardSocket.deleteBoard(socket, data.boardUuid);
     });
   });
 
