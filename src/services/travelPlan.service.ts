@@ -92,13 +92,31 @@ class TravelPlanService {
       
       if (!localItem) {
         console.log(`[NaverAPI] 장소 검색 결과 없음: ${locationTitle}`);
-        return {};
+        // 검색 결과가 없으면 좌표 없이 기본 정보만 반환
+        return {
+          title: locationTitle,
+          address: locationAddress,
+          // latitude, longitude는 undefined로 유지 (null 좌표 방지)
+        };
       }
 
       // 좌표 변환 (네이버 API는 KATEC 좌표계 사용, WGS84로 변환 필요)
       // mapx, mapy는 경도/위도 * 10000000 형태
-      const longitude = parseFloat(localItem.mapx) / 10000000;
-      const latitude = parseFloat(localItem.mapy) / 10000000;
+      const rawLongitude = parseFloat(localItem.mapx) / 10000000;
+      const rawLatitude = parseFloat(localItem.mapy) / 10000000;
+
+      // 유효한 좌표인지 검증 (한국 영역: 위도 33~43, 경도 124~132)
+      const isValidCoordinate = 
+        !isNaN(rawLatitude) && !isNaN(rawLongitude) &&
+        rawLatitude >= 33 && rawLatitude <= 43 &&
+        rawLongitude >= 124 && rawLongitude <= 132;
+
+      const latitude = isValidCoordinate ? rawLatitude : undefined;
+      const longitude = isValidCoordinate ? rawLongitude : undefined;
+
+      if (!isValidCoordinate) {
+        console.log(`[NaverAPI] 유효하지 않은 좌표: ${locationTitle} (lat: ${rawLatitude}, lng: ${rawLongitude})`);
+      }
 
       // 2. 네이버 이미지 검색 API로 썸네일 가져오기
       let thumbnailUrl: string | undefined;
@@ -140,7 +158,11 @@ class TravelPlanService {
       };
     } catch (error) {
       console.error(`[NaverAPI] 장소 정보 보강 실패: ${locationTitle}`, error);
-      return {};
+      return {
+        title: locationTitle,
+        address: locationAddress,
+        // 에러 시에도 좌표 없이 반환
+      };
     }
   }
 
