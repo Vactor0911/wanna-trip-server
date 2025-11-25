@@ -3,6 +3,7 @@ import { Server, Socket } from "socket.io";
 import { socketHandler } from "../middleware/socketHandler";
 import UserSocket from "./user.socket";
 import TemplateSocket from "./template.socket";
+import BoardSocket from "./board.socket";
 
 // Socket.io 서버 인스턴스
 let io: Server;
@@ -56,9 +57,7 @@ export const initializeSocketServer = (httpServer: HttpServer) => {
       UserSocket.getUserList(socket);
     });
 
-    /**
-     * 템플릿 Room 퇴장
-     */
+    //템플릿 Room 퇴장
     socket.on("template:leave", () => {
       const templateUuid = socket.data.templateUuid;
       if (!templateUuid) {
@@ -68,13 +67,30 @@ export const initializeSocketServer = (httpServer: HttpServer) => {
       handleUserLeave(socket, templateUuid);
     });
 
-    /**
-     * 소켓 연결 해제
-     */
+    // 소켓 연결 해제
     socket.on("disconnect", () => {
       const templateUuid = socket.data.templateUuid;
       if (templateUuid) {
         handleUserLeave(socket, templateUuid);
+      }
+    });
+
+    // 템플릿 패치 요청
+    socket.on("template:fetch", () => {
+      try {
+        const templateUuid = socket.data.templateUuid;
+        const userUuid = socket.data.userUuid;
+
+        // 템플릿 수정 메시지 전송
+        socket.to(`template:${templateUuid}`).emit("template:fetch", {
+          userUuid,
+          timestamp: new Date().toISOString(),
+        });
+      } catch (error) {
+        console.error("Template fetch error:", error);
+        socket.emit("error", {
+          message: "템플릿 패치 중 오류가 발생했습니다.",
+        });
       }
     });
   });

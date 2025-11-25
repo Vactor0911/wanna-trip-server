@@ -17,7 +17,7 @@ class BoardService {
     templateUuid: string,
     dayNumber: number
   ) {
-    await TransactionHandler.executeInTransaction(
+    return await TransactionHandler.executeInTransaction(
       dbPool,
       async (connection) => {
         // 템플릿 수정 권한 확인
@@ -108,7 +108,7 @@ class BoardService {
    * @param boardUuid 보드 uuid
    */
   static async copyBoard(userId: string, boardUuid: string) {
-    await TransactionHandler.executeInTransaction(
+    return await TransactionHandler.executeInTransaction(
       dbPool,
       async (connection) => {
         // 보드 조회

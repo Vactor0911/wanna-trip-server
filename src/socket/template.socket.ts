@@ -72,6 +72,31 @@ class TemplateSocket {
       });
     }
   }
+
+  /**
+   * 템플릿 수정 알림 전송
+   * @param socket 소켓 객체
+   * @param templateUuid 템플릿 uuid
+   * @param title 템플릿 제목
+   */
+  static async updateTemplate(socket: Socket, title: string) {
+    try {
+      const templateUuid = socket.data.templateUuid;
+      const userUuid = socket.data.userUuid;
+
+      // 템플릿 수정 메시지 전송
+      socket.to(`template:${templateUuid}`).emit("template:update", {
+        userUuid,
+        title,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error("Template update error:", error);
+      socket.emit("error", {
+        message: "템플릿 수정 중 오류가 발생했습니다.",
+      });
+    }
+  }
 }
 
 export default TemplateSocket;
