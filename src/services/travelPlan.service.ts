@@ -1,5 +1,6 @@
 import { PoolConnection, Pool } from "mariadb";
 import { v4 as uuidv4 } from "uuid";
+import axios from "axios";
 import TransactionHandler from "../utils/transactionHandler";
 import { dbPool } from "../config/db";
 
@@ -32,7 +33,151 @@ interface TravelPlanJSON {
   boards: BoardData[];
 }
 
+/**
+ * 네이버 API 검색 결과 인터페이스
+ */
+interface NaverLocalItem {
+  title: string;
+  link: string;
+  category: string;
+  description: string;
+  telephone: string;
+  address: string;
+  roadAddress: string;
+  mapx: string;
+  mapy: string;
+}
+
+interface NaverImageItem {
+  title: string;
+  link: string;
+  thumbnail: string;
+  sizeheight: string;
+  sizewidth: string;
+}
+
 class TravelPlanService {
+  /**
+   * 네이버 API로 장소 검색하여 상세 정보 가져오기
+   * @param locationTitle 장소명
+   * @param locationAddress 주소 (검색 정확도 향상용)
+   * @returns 보강된 장소 정보
+   */
+  static async enrichLocationWithNaverAPI(
+    locationTitle: string,
+    locationAddress?: string
+  ): Promise<Partial<LocationData>> {
+    try {
+      // 1. 네이버 지역 검색 API로 장소 정보 가져오기
+      const searchQuery = locationAddress 
+        ? `${locationTitle} ${locationAddress.split(' ').slice(0, 2).join(' ')}` 
+        : locationTitle;
+
+      const localResponse = await axios.get<{ items: NaverLocalItem[] }>(
+        'https://openapi.naver.com/v1/search/local.json',
+        {
+          params: {
+            query: searchQuery,
+            display: 1,
+            sort: 'random'
+          },
+          headers: {
+            'X-Naver-Client-Id': process.env.NAVER_CLIENT_ID,
+            'X-Naver-Client-Secret': process.env.NAVER_CLIENT_SECRET
+          }
+        }
+      );
+
+      const localItem = localResponse.data.items[0];
+      
+      if (!localItem) {
+        console.log(`[NaverAPI] 장소 검색 결과 없음: ${locationTitle}`);
+        return {};
+      }
+
+      // 좌표 변환 (네이버 API는 KATEC 좌표계 사용, WGS84로 변환 필요)
+      // mapx, mapy는 경도/위도 * 10000000 형태
+      const longitude = parseFloat(localItem.mapx) / 10000000;
+      const latitude = parseFloat(localItem.mapy) / 10000000;
+
+      // 2. 네이버 이미지 검색 API로 썸네일 가져오기
+      let thumbnailUrl: string | undefined;
+      
+      try {
+        const imageResponse = await axios.get<{ items: NaverImageItem[] }>(
+          'https://openapi.naver.com/v1/search/image.json',
+          {
+            params: {
+              query: locationTitle,
+              display: 1,
+              sort: 'sim',
+              filter: 'medium'
+            },
+            headers: {
+              'X-Naver-Client-Id': process.env.NAVER_CLIENT_ID,
+              'X-Naver-Client-Secret': process.env.NAVER_CLIENT_SECRET
+            }
+          }
+        );
+
+        if (imageResponse.data.items.length > 0) {
+          thumbnailUrl = imageResponse.data.items[0].thumbnail;
+        }
+      } catch (imageError) {
+        console.log(`[NaverAPI] 이미지 검색 실패: ${locationTitle}`);
+      }
+
+      // HTML 태그 제거 (네이버 API 결과에 <b> 태그 포함될 수 있음)
+      const cleanTitle = localItem.title.replace(/<[^>]*>/g, '');
+
+      return {
+        title: cleanTitle,
+        address: localItem.roadAddress || localItem.address,
+        category: localItem.category,
+        latitude,
+        longitude,
+        thumbnail_url: thumbnailUrl
+      };
+    } catch (error) {
+      console.error(`[NaverAPI] 장소 정보 보강 실패: ${locationTitle}`, error);
+      return {};
+    }
+  }
+
+  /**
+   * 여행 계획의 모든 장소에 대해 네이버 API로 정보 보강
+   * @param planJSON 여행 계획 JSON
+   * @returns 보강된 여행 계획 JSON
+   */
+  static async enrichPlanWithNaverAPI(planJSON: TravelPlanJSON): Promise<TravelPlanJSON> {
+    const enrichedPlan = JSON.parse(JSON.stringify(planJSON)) as TravelPlanJSON;
+
+    for (const board of enrichedPlan.boards) {
+      for (const card of board.cards) {
+        if (card.location?.title) {
+          // API 호출 간 딜레이 (Rate Limit 방지)
+          await new Promise(resolve => setTimeout(resolve, 100));
+
+          const enrichedLocation = await this.enrichLocationWithNaverAPI(
+            card.location.title,
+            card.location.address
+          );
+
+          // 기존 정보와 병합 (네이버 API 결과 우선)
+          card.location = {
+            ...card.location,
+            ...enrichedLocation,
+            // AI가 생성한 정보가 없을 경우에만 네이버 결과 사용
+            title: enrichedLocation.title || card.location.title,
+            address: enrichedLocation.address || card.location.address,
+            category: enrichedLocation.category || card.location.category,
+          };
+        }
+      }
+    }
+
+    return enrichedPlan;
+  }
   /**
    * AI 생성 여행 계획 JSON을 DB에 저장
    * @param userId 사용자 ID
