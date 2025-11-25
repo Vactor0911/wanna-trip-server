@@ -17,10 +17,22 @@ export const getPostsByPage = async (req: Request, res: Response) => {
     const posts = await dbPool.query(
       `
       SELECT 
-        p.post_uuid, p.title, p.tag, p.shares, p.content,
+        p.post_uuid, p.title, p.tag, p.shares, p.content, p.template_uuid,
         COALESCE(l.like_count, 0) AS like_count,
         IF(l2.user_uuid IS NULL, 0, 1) AS liked,
-        COALESCE(c.comments, 0) AS comments
+        COALESCE(c.comments, 0) AS comments,
+        /* 템플릿 썸네일 (게시글 내용에 이미지가 없을 때 사용) */
+        (
+          SELECT loc.thumbnail_url
+          FROM template t
+          JOIN board b ON t.template_id = b.template_id
+          JOIN card ca ON b.board_id = ca.board_id
+          JOIN location loc ON ca.card_id = loc.card_id
+          WHERE t.template_uuid COLLATE utf8mb4_unicode_ci = p.template_uuid COLLATE utf8mb4_unicode_ci
+            AND loc.thumbnail_url IS NOT NULL
+          ORDER BY b.day_number ASC, ca.order_index ASC
+          LIMIT 1
+        ) AS template_thumbnail
       FROM post AS p
 
       /* 좋아요 수 */
@@ -70,17 +82,32 @@ export const getPostsByPage = async (req: Request, res: Response) => {
       return;
     }
 
+    // 게시글 내용에서 첫 번째 이미지 URL 추출
+    const extractFirstImageUrl = (htmlContent?: string): string | null => {
+      if (!htmlContent) return null;
+      const imgRegex = /<img[^>]+src="([^">]+)"/;
+      const match = htmlContent.match(imgRegex);
+      return match ? match[1] : null;
+    };
+
     // 응답 데이터 가공
-    const response = posts.map((post: any) => ({
-      uuid: post.post_uuid,
-      title: post.title,
-      tags: post.tag ? post.tag.split(",") : [],
-      liked: req.user ? !!post.liked : false,
-      likes: Number(post.like_count || 0),
-      shares: Number(post.shares || 0),
-      content: post.content,
-      comments: Number(post.comments || 0),
-    }));
+    const response = posts.map((post: any) => {
+      // 게시글 내용에서 이미지 추출, 없으면 템플릿 썸네일 사용
+      const contentImage = extractFirstImageUrl(post.content);
+      const thumbnail = contentImage || post.template_thumbnail || null;
+
+      return {
+        uuid: post.post_uuid,
+        title: post.title,
+        tags: post.tag ? post.tag.split(",") : [],
+        liked: req.user ? !!post.liked : false,
+        likes: Number(post.like_count || 0),
+        shares: Number(post.shares || 0),
+        content: post.content,
+        comments: Number(post.comments || 0),
+        thumbnail, // 썸네일 (내용 이미지 > 템플릿 썸네일)
+      };
+    });
     
     // 검색 결과 반환
     res.status(200).json({
@@ -104,12 +131,24 @@ export const getPopularPosts = async (req: Request, res: Response) => {
     const posts = await dbPool.query(
       `
       SELECT 
-        p.post_uuid, p.title, p.content, p.shares,
+        p.post_uuid, p.title, p.content, p.shares, p.template_uuid,
         u.name AS author_name, 
         u.profile_image AS author_profile_image,
         COALESCE(l.like_count, 0) AS like_count,
         COALESCE(l2.liked, 0) AS liked,
-        COALESCE(c.comments, 0) AS comments
+        COALESCE(c.comments, 0) AS comments,
+        /* 템플릿 썸네일 (게시글 내용에 이미지가 없을 때 사용) */
+        (
+          SELECT loc.thumbnail_url
+          FROM template t
+          JOIN board b ON t.template_id = b.template_id
+          JOIN card ca ON b.board_id = ca.board_id
+          JOIN location loc ON ca.card_id = loc.card_id
+          WHERE t.template_uuid COLLATE utf8mb4_unicode_ci = p.template_uuid COLLATE utf8mb4_unicode_ci
+            AND loc.thumbnail_url IS NOT NULL
+          ORDER BY b.day_number ASC, ca.order_index ASC
+          LIMIT 1
+        ) AS template_thumbnail
       FROM post AS p
 
       /* 작성자 */
@@ -153,18 +192,33 @@ export const getPopularPosts = async (req: Request, res: Response) => {
       return;
     }
 
+    // 게시글 내용에서 첫 번째 이미지 URL 추출
+    const extractFirstImageUrl = (htmlContent?: string): string | null => {
+      if (!htmlContent) return null;
+      const imgRegex = /<img[^>]+src="([^">]+)"/;
+      const match = htmlContent.match(imgRegex);
+      return match ? match[1] : null;
+    };
+
     // 응답 데이터 가공
-    const response = posts.map((post: any) => ({
-      uuid: post.post_uuid,
-      title: post.title,
-      authorName: post.author_name,
-      authorProfileImage: post.author_profile_image,
-      content: post.content,
-      liked: req.user ? !!post.liked : false,
-      likes: Number(post.like_count || 0),
-      shares: Number(post.shares || 0),
-      comments: Number(post.comments || 0),
-    }));
+    const response = posts.map((post: any) => {
+      // 게시글 내용에서 이미지 추출, 없으면 템플릿 썸네일 사용
+      const contentImage = extractFirstImageUrl(post.content);
+      const thumbnail = contentImage || post.template_thumbnail || null;
+
+      return {
+        uuid: post.post_uuid,
+        title: post.title,
+        authorName: post.author_name,
+        authorProfileImage: post.author_profile_image,
+        content: post.content,
+        liked: req.user ? !!post.liked : false,
+        likes: Number(post.like_count || 0),
+        shares: Number(post.shares || 0),
+        comments: Number(post.comments || 0),
+        thumbnail, // 썸네일 (내용 이미지 > 템플릿 썸네일)
+      };
+    });
 
     // 검색 결과 반환
     res.status(200).json({
