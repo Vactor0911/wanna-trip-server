@@ -1063,6 +1063,129 @@ export const toggleLike = async (req: Request, res: Response) => {
   }
 };
 
+// 좋아요 한 게시글 목록 조회
+export const getLikedPosts = async (req: Request, res: Response) => {
+  const POSTS_PER_PAGE = 10; // 페이지당 게시글 수
+
+  try {
+    const userUuid = req.user?.userUuid;
+    const { page = "1" } = req.query;
+
+    // 사용자 인증 실패
+    if (!userUuid) {
+      res.status(401).json({
+        success: false,
+        message: "로그인이 필요합니다.",
+      });
+      return;
+    }
+
+    // 페이지 오프셋 계산
+    const pageNumber = parseInt(page as string, 10);
+    const pageOffset = (pageNumber - 1) * POSTS_PER_PAGE;
+
+    // 좋아요 한 게시글 목록 조회
+    const posts = await dbPool.query(
+      `
+      SELECT 
+        p.post_uuid, p.title, p.tag, p.shares, p.content, p.template_uuid,
+        u.name AS author_name,
+        u.profile_image AS author_profile_image,
+        COALESCE(l_count.like_count, 0) AS like_count,
+        1 AS liked,
+        COALESCE(c.comments, 0) AS comments,
+        l.created_at AS liked_at,
+        /* 템플릿 썸네일 (게시글 내용에 이미지가 없을 때 사용) */
+        (
+          SELECT loc.thumbnail_url
+          FROM template t
+          JOIN board b ON t.template_id = b.template_id
+          JOIN card ca ON b.board_id = ca.board_id
+          JOIN location loc ON ca.card_id = loc.card_id
+          WHERE t.template_uuid COLLATE utf8mb4_unicode_ci = p.template_uuid COLLATE utf8mb4_unicode_ci
+            AND loc.thumbnail_url IS NOT NULL
+          ORDER BY b.day_number ASC, ca.order_index ASC
+          LIMIT 1
+        ) AS template_thumbnail
+      FROM likes AS l
+
+      /* 게시글 정보 */
+      INNER JOIN post AS p 
+        ON l.target_uuid COLLATE utf8mb4_unicode_ci = p.post_uuid COLLATE utf8mb4_unicode_ci
+
+      /* 작성자 정보 */
+      LEFT JOIN user AS u
+        ON p.user_uuid COLLATE utf8mb4_unicode_ci = u.user_uuid COLLATE utf8mb4_unicode_ci
+
+      /* 좋아요 수 */
+      LEFT JOIN (
+        SELECT target_uuid, COUNT(*) AS like_count
+        FROM likes
+        WHERE target_type = 'post'
+        GROUP BY target_uuid
+      ) AS l_count ON p.post_uuid COLLATE utf8mb4_unicode_ci = l_count.target_uuid COLLATE utf8mb4_unicode_ci
+
+      /* 댓글 수 */
+      LEFT JOIN (
+        SELECT post_uuid, COUNT(*) AS comments
+        FROM post_comment
+        GROUP BY post_uuid
+      ) AS c ON c.post_uuid COLLATE utf8mb4_unicode_ci = p.post_uuid COLLATE utf8mb4_unicode_ci
+
+      WHERE l.user_uuid = ? COLLATE utf8mb4_unicode_ci
+        AND l.target_type = 'post'
+      ORDER BY l.created_at DESC
+      LIMIT ?
+      OFFSET ?;
+      `,
+      [userUuid, POSTS_PER_PAGE, pageOffset]
+    );
+
+    // 게시글 내용에서 첫 번째 이미지 URL 추출
+    const extractFirstImageUrl = (htmlContent?: string): string | null => {
+      if (!htmlContent) return null;
+      const imgRegex = /<img[^>]+src="([^">]+)"/;
+      const match = htmlContent.match(imgRegex);
+      return match ? match[1] : null;
+    };
+
+    // 응답 데이터 가공
+    const response = posts.map((post: any) => {
+      // 게시글 내용에서 이미지 추출, 없으면 템플릿 썸네일 사용
+      const contentImage = extractFirstImageUrl(post.content);
+      const thumbnail = contentImage || post.template_thumbnail || null;
+
+      return {
+        uuid: post.post_uuid,
+        title: post.title,
+        tags: post.tag ? post.tag.split(",") : [],
+        authorName: post.author_name,
+        authorProfileImage: post.author_profile_image,
+        liked: true,
+        likes: Number(post.like_count || 0),
+        shares: Number(post.shares || 0),
+        content: post.content,
+        comments: Number(post.comments || 0),
+        thumbnail,
+        likedAt: post.liked_at,
+      };
+    });
+
+    // 검색 결과 반환
+    res.status(200).json({
+      success: true,
+      posts: response,
+      hasMore: posts.length === POSTS_PER_PAGE,
+    });
+  } catch (err) {
+    console.error("좋아요 한 게시글 목록 조회 오류:", err);
+    res.status(500).json({
+      success: false,
+      message: "좋아요 한 게시글 목록을 불러오는 중 오류가 발생했습니다.",
+    });
+  }
+};
+
 // 인기 태그 목록 조회
 export const getPopularTags = async (req: Request, res: Response) => {
   const RESULT_LENGTH = 10; // 조회할 인기 태그 수
