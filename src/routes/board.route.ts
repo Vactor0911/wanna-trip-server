@@ -54,6 +54,7 @@ boardRoute.put(
   BoardController.sortCards
 );
 
+// 보드 내 카드 전체 삭제
 boardRoute.put(
   "/clear/:boardUuid",
   limiter,
