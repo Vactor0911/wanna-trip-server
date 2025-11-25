@@ -56,9 +56,7 @@ export const initializeSocketServer = (httpServer: HttpServer) => {
       UserSocket.getUserList(socket);
     });
 
-    /**
-     * 템플릿 Room 퇴장
-     */
+    //템플릿 Room 퇴장
     socket.on("template:leave", () => {
       const templateUuid = socket.data.templateUuid;
       if (!templateUuid) {
@@ -68,15 +66,29 @@ export const initializeSocketServer = (httpServer: HttpServer) => {
       handleUserLeave(socket, templateUuid);
     });
 
-    /**
-     * 소켓 연결 해제
-     */
+    // 소켓 연결 해제
     socket.on("disconnect", () => {
       const templateUuid = socket.data.templateUuid;
       if (templateUuid) {
         handleUserLeave(socket, templateUuid);
       }
     });
+
+    /**
+     * 템플릿 이벤트
+     */
+
+    // 템플릿 이름 변경
+    socket.on(
+      "template:update",
+      (data: { title: string }) => {
+        TemplateSocket.updateTemplate(socket, data.title);
+      }
+    );
+
+    /**
+     * 보드 이벤트
+     */
   });
 
   return io;
