@@ -12,6 +12,7 @@ import {
   editComment,
   editPost,
   getCommentsByPostUuid,
+  getLikedPosts,
   getPopularPosts,
   getPopularTags,
   getPostByUuid,
@@ -100,6 +101,9 @@ postRoute.post(
   csrfProtection,
   toggleLike
 );
+
+// 좋아요 한 게시글 목록 조회
+postRoute.get("/likes/posts", limiter, authenticateToken, getLikedPosts);
 
 // 인기 태그 조회
 postRoute.get("/tags/popular", limiter, optionalAuthenticate, getPopularTags);
