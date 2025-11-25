@@ -398,6 +398,7 @@ export const kakaoLogin = async (req: Request, res: Response) => {
       message: `로그인 성공`,
       name: kakaoName,
       userId: user.user_id,
+      userUuid: user.user_uuid,
       permissions: user.permission,
       accessToken,
       loginType: "kakao",
@@ -512,6 +513,7 @@ export const googleLogin = async (req: Request, res: Response) => {
       message: `로그인 성공`,
       name: googleName,
       userId: user.user_id,
+      userUuid: user.user_uuid,
       permissions: user.permission,
       accessToken,
       loginType: "google",
@@ -958,6 +960,7 @@ export const refreshToken = async (req: Request, res: Response) => {
         message: "Access Token이 갱신되었습니다.",
         accessToken: newAccessToken,
         userId: decoded.userId,
+        userUuid: decoded.userUuid,
         name: decoded.name,
         permissions: decoded.permission,
       });

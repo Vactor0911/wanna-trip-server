@@ -3,7 +3,7 @@ import { Server, Socket } from "socket.io";
 import { socketHandler } from "../middleware/socketHandler";
 import UserSocket from "./user.socket";
 import TemplateSocket from "./template.socket";
-import BoardSocket from "./board.socket";
+import CardSocket from "./card.socket";
 
 // Socket.io 서버 인스턴스
 let io: Server;
@@ -77,22 +77,18 @@ export const initializeSocketServer = (httpServer: HttpServer) => {
 
     // 템플릿 패치 요청
     socket.on("template:fetch", () => {
-      try {
-        const templateUuid = socket.data.templateUuid;
-        const userUuid = socket.data.userUuid;
-
-        // 템플릿 수정 메시지 전송
-        socket.to(`template:${templateUuid}`).emit("template:fetch", {
-          userUuid,
-          timestamp: new Date().toISOString(),
-        });
-      } catch (error) {
-        console.error("Template fetch error:", error);
-        socket.emit("error", {
-          message: "템플릿 패치 중 오류가 발생했습니다.",
-        });
-      }
+      TemplateSocket.fetchTemplate(socket);
     });
+
+    // 카드 편집 시작 이벤트
+    socket.on("card:editing:start", (data: { cardUuid: string }) =>
+      CardSocket.lockCard(socket, data.cardUuid)
+    );
+
+    // 카드 편집 종료 이벤트
+    socket.on("card:editing:end", (data: { cardUuid: string }) =>
+      CardSocket.unlockCard(socket, data.cardUuid)
+    );
   });
 
   return io;
