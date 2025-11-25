@@ -197,9 +197,26 @@ class TemplateService {
       throw new NotFoundError("템플릿을 찾을 수 없습니다.");
     }
 
+    // 사용자 조회
+    const user = await UserModel.findById(userId, dbPool);
+    if (!user) {
+      throw new NotFoundError("사용자를 찾을 수 없습니다.");
+    }
+
+    // 공동 작업자 조회
+    const collaborators = await CollaboratorModel.findAllByTemplateId(
+      template.template_id,
+      dbPool
+    );
+    const isCollaborator = collaborators.some(
+      (collaborator: any) => collaborator.user_uuid === user.user_uuid
+    );
+
     // 템플릿 공개 설정 확인
-    if (template.privacy === "private" && template.user_id !== userId) {
-      throw new ForbiddenError("템플릿 조회 권한이 없습니다.");
+    if (template.privacy === "private") {
+      if (!isCollaborator && template.user_id !== userId) {
+        throw new ForbiddenError("템플릿 조회 권한이 없습니다.");
+      }
     }
   }
 
