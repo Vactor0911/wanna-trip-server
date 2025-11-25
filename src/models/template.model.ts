@@ -158,6 +158,7 @@ class TemplateModel {
           t.created_at, 
           t.shared_count, 
           u.name AS owner_name,
+          u.profile_image AS owner_profile_image,
           (
             SELECT l.thumbnail_url
             FROM board b

@@ -387,6 +387,7 @@ class TemplateService {
       createdAt: template.created_at,
       sharedCount: template.shared_count,
       ownerName: template.owner_name,
+      ownerProfileImage: template.owner_profile_image,
       thumbnailUrl: template.thumbnail_url,
     };
   }
