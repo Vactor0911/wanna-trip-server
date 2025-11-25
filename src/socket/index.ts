@@ -92,6 +92,11 @@ export const initializeSocketServer = (httpServer: HttpServer) => {
     socket.on("board:add", (data: { boardUuid: string; dayNumber: number }) => {
       BoardSocket.addBoard(socket, data.boardUuid, data.dayNumber);
     });
+
+    // 보드 삭제
+    socket.on("board:delete", (data: { boardUuid: string }) => {
+      BoardSocket.deleteBoard(socket, data.boardUuid);
+    });
   });
 
   return io;
