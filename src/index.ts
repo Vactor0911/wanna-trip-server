@@ -17,6 +17,7 @@ import {
   templateRoute,
   collaboratorRoute,
   userRouter,
+  chatRoute,
 } from "./routes";
 import { initializeSocketServer } from "./socket";
 import { createServer } from "http";
@@ -36,6 +37,7 @@ dotenv.config();
   "NODEMAILER_USER",
   "NODEMAILER_PASS",
   "KAKAO_CLIENT_ID",
+  
 ].forEach((key) => {
   if (!process.env[key]) {
     throw new Error(`해당 환경변수가 존재하지 않습니다.: ${key}`);
@@ -110,6 +112,7 @@ app.use("/naver-map", searchRoute); // 네이버 지도 검색
 app.use("/post", postRoute); // 게시글 관련
 app.use("/collaborator", collaboratorRoute); // 공동 작업자 관련
 app.use("/user", userRouter); // 사용자 관련
+app.use("/chat", chatRoute); // AI 챗봇 관련
 
 // *** 라우트 정의 끝 ***
 

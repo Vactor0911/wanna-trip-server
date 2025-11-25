@@ -7,6 +7,7 @@ import searchRoute from "./searchRoute";
 import postRoute from "./postRoute";
 import collaboratorRoute from "./collaborator.route";
 import userRouter from "./user.route";
+import chatRoute from "./chatRoute";
 
 export {
   authRoute,
@@ -18,4 +19,5 @@ export {
   postRoute,
   collaboratorRoute,
   userRouter,
+  chatRoute,
 };
