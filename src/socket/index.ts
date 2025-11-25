@@ -93,6 +93,14 @@ export const initializeSocketServer = (httpServer: HttpServer) => {
       BoardSocket.addBoard(socket, data.boardUuid, data.dayNumber);
     });
 
+    // 보드 복제
+    socket.on(
+      "board:copy",
+      (data: { boardUuid: string; newBoardUuid: string }) => {
+        BoardSocket.copyBoard(socket, data.boardUuid, data.newBoardUuid);
+      }
+    );
+
     // 보드 삭제
     socket.on("board:delete", (data: { boardUuid: string }) => {
       BoardSocket.deleteBoard(socket, data.boardUuid);
