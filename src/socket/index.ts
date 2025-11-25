@@ -3,6 +3,7 @@ import { Server, Socket } from "socket.io";
 import { socketHandler } from "../middleware/socketHandler";
 import UserSocket from "./user.socket";
 import TemplateSocket from "./template.socket";
+import BoardSocket from "./board.socket";
 
 // Socket.io 서버 인스턴스
 let io: Server;
@@ -79,16 +80,18 @@ export const initializeSocketServer = (httpServer: HttpServer) => {
      */
 
     // 템플릿 이름 변경
-    socket.on(
-      "template:update",
-      (data: { title: string }) => {
-        TemplateSocket.updateTemplate(socket, data.title);
-      }
-    );
+    socket.on("template:update", (data: { title: string }) => {
+      TemplateSocket.updateTemplate(socket, data.title);
+    });
 
     /**
      * 보드 이벤트
      */
+
+    // 보드 추가
+    socket.on("board:add", (data: { boardUuid: string; dayNumber: number }) => {
+      BoardSocket.addBoard(socket, data.boardUuid, data.dayNumber);
+    });
   });
 
   return io;
