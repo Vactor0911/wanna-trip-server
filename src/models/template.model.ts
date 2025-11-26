@@ -91,7 +91,12 @@ class TemplateModel {
               AND l.thumbnail_url IS NOT NULL
             ORDER BY b.day_number ASC, c.order_index ASC
             LIMIT 1
-          ) AS thumbnail_url
+          ) AS thumbnail_url,
+          (
+            SELECT COUNT(*)
+            FROM board b
+            WHERE b.template_id = t.template_id
+          ) AS board_count
         FROM template t
         WHERE t.user_id = ?
       `,
@@ -197,6 +202,65 @@ class TemplateModel {
       `,
       [privacy, templateUuid]
     );
+  }
+
+  /**
+   * 템플릿 퍼가기 횟수 증가
+   * @param templateId 템플릿 id
+   * @param connection 데이터베이스 연결 객체
+   */
+  static async incrementSharedCount(
+    templateId: number,
+    connection: PoolConnection | Pool
+  ) {
+    await connection.execute(
+      `
+        UPDATE template
+        SET shared_count = shared_count + 1
+        WHERE template_id = ?
+      `,
+      [templateId]
+    );
+  }
+
+  /**
+   * 인기 공개 템플릿 조회 (퍼가기 횟수 기준)
+   * @param limit 조회 개수
+   * @param connection 데이터베이스 연결 객체
+   * @returns 인기 공개 템플릿 목록
+   */
+  static async findPopularPublicTemplates(
+    limit: number,
+    connection: PoolConnection | Pool
+  ) {
+    const templates = await connection.execute(
+      `
+        SELECT 
+          t.template_uuid, 
+          t.title, 
+          t.created_at, 
+          t.shared_count, 
+          u.name AS owner_name,
+          u.profile_image AS owner_profile_image,
+          (
+            SELECT l.thumbnail_url
+            FROM board b
+            JOIN card c ON b.board_id = c.board_id
+            JOIN location l ON c.card_id = l.card_id
+            WHERE b.template_id = t.template_id
+              AND l.thumbnail_url IS NOT NULL
+            ORDER BY b.day_number ASC, c.order_index ASC
+            LIMIT 1
+          ) AS thumbnail_url
+        FROM template t
+        JOIN user u ON t.user_id = u.user_id
+        WHERE t.privacy = 'public'
+        ORDER BY t.shared_count DESC, t.created_at DESC
+        LIMIT ?
+      `,
+      [limit]
+    );
+    return templates;
   }
 }
 

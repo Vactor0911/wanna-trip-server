@@ -175,6 +175,27 @@ class BoardModel {
   }
 
   /**
+   * 보드 id로 보드 조회
+   * @param boardId 보드 id
+   * @param connection 데이터베이스 연결 객체
+   * @returns 조회된 보드
+   */
+  static async findById(
+    boardId: number,
+    connection: PoolConnection | Pool
+  ) {
+    const [board] = await connection.execute(
+      `
+        SELECT *
+        FROM board
+        WHERE board_id = ?;
+      `,
+      [boardId]
+    );
+    return board;
+  }
+
+  /**
    * 템플릿 id로 모든 보드 조회
    * @param templateId 템플릿 id
    * @param connection 데이터베이스 연결 객체
@@ -351,6 +372,45 @@ class BoardModel {
         [dayNumberCounter++, board.board_id]
       );
     }
+  }
+
+  /**
+   * 보드 id로 보드 삭제
+   * @param boardId 보드 id
+   * @param connection 데이터베이스 연결 객체
+   */
+  static async deleteById(
+    boardId: number,
+    connection: PoolConnection | Pool
+  ) {
+    await connection.execute(
+      `
+        DELETE FROM board
+        WHERE board_id = ?;
+      `,
+      [boardId]
+    );
+  }
+
+  /**
+   * 템플릿 내 마지막 일차 번호 조회
+   * @param templateId 템플릿 id
+   * @param connection 데이터베이스 연결 객체
+   * @returns 마지막 일차 번호
+   */
+  static async getLastDayNumber(
+    templateId: number,
+    connection: PoolConnection | Pool
+  ): Promise<number> {
+    const [result] = await connection.execute(
+      `
+        SELECT COALESCE(MAX(day_number), 0) AS last_day_number
+        FROM board
+        WHERE template_id = ?;
+      `,
+      [templateId]
+    );
+    return result?.last_day_number || 0;
   }
 }
 

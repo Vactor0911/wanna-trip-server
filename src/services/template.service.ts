@@ -347,6 +347,7 @@ class TemplateService {
       updatedAt: template.updated_at,
       sharedCount: template.shared_count,
       thumbnailUrl: template.thumbnail_url,
+      boardCount: template.board_count ? Number(template.board_count) : undefined,
       boards: template.boards?.map((board: any) => ({
         uuid: board.board_uuid,
         dayNumber: board.day_number,
@@ -443,6 +444,276 @@ class TemplateService {
         }
       }
     );
+  }
+
+  /**
+   * 카드 복사 (다른 사람의 공개 템플릿에서 내 템플릿으로)
+   * @param userId 사용자 id
+   * @param sourceCardUuid 원본 카드 uuid
+   * @param targetBoardUuid 대상 보드 uuid
+   * @returns 복사된 카드 id
+   */
+  static async copyCard(
+    userId: string,
+    sourceCardUuid: string,
+    targetBoardUuid: string
+  ): Promise<number> {
+    return await TransactionHandler.executeInTransaction(
+      dbPool,
+      async (connection) => {
+        // 원본 카드 조회
+        const sourceCard = await CardModel.findByUuid(sourceCardUuid, connection);
+        if (!sourceCard) {
+          throw new NotFoundError("원본 카드를 찾을 수 없습니다.");
+        }
+
+        // 원본 보드 조회
+        const sourceBoard = await BoardModel.findById(sourceCard.board_id, connection);
+        if (!sourceBoard) {
+          throw new NotFoundError("원본 보드를 찾을 수 없습니다.");
+        }
+
+        // 원본 템플릿 조회
+        const sourceTemplate = await TemplateModel.findById(sourceBoard.template_id, connection);
+        if (!sourceTemplate) {
+          throw new NotFoundError("원본 템플릿을 찾을 수 없습니다.");
+        }
+
+        // 원본 템플릿이 public인지 확인 (본인 템플릿이 아닌 경우)
+        if (sourceTemplate.user_id !== parseInt(userId) && sourceTemplate.privacy !== "public") {
+          throw new ForbiddenError("비공개 템플릿의 카드는 복사할 수 없습니다.");
+        }
+
+        // 대상 보드 조회
+        const targetBoard = await BoardModel.findByUuid(targetBoardUuid, connection);
+        if (!targetBoard) {
+          throw new NotFoundError("대상 보드를 찾을 수 없습니다.");
+        }
+
+        // 대상 템플릿 수정 권한 확인
+        await this.validateEditPermissionById(userId, targetBoard.template_id);
+
+        // 카드 복사 (copyToBoard 메서드 사용)
+        const newCardId = await CardModel.copyToBoard(
+          sourceCard.card_id,
+          targetBoard.board_id,
+          connection
+        );
+
+        // 원본 템플릿의 shared_count 증가 (본인 템플릿이 아닌 경우에만)
+        if (sourceTemplate.user_id !== parseInt(userId)) {
+          await TemplateModel.incrementSharedCount(sourceTemplate.template_id, connection);
+        }
+
+        return newCardId;
+      }
+    );
+  }
+
+  /**
+   * 보드 복사 (다른 사람의 공개 템플릿에서 내 템플릿으로)
+   * @param userId 사용자 id
+   * @param sourceBoardUuid 원본 보드 uuid
+   * @param targetTemplateUuid 대상 템플릿 uuid
+   * @returns 복사된 보드 uuid
+   */
+  static async copyBoard(
+    userId: string,
+    sourceBoardUuid: string,
+    targetTemplateUuid: string
+  ): Promise<string> {
+    return await TransactionHandler.executeInTransaction(
+      dbPool,
+      async (connection) => {
+        // 원본 보드 조회
+        const sourceBoard = await BoardModel.findByUuid(sourceBoardUuid, connection);
+        if (!sourceBoard) {
+          throw new NotFoundError("원본 보드를 찾을 수 없습니다.");
+        }
+
+        // 원본 템플릿 조회
+        const sourceTemplate = await TemplateModel.findById(sourceBoard.template_id, connection);
+        if (!sourceTemplate) {
+          throw new NotFoundError("원본 템플릿을 찾을 수 없습니다.");
+        }
+
+        // 원본 템플릿이 public인지 확인 (본인 템플릿이 아닌 경우)
+        if (sourceTemplate.user_id !== parseInt(userId) && sourceTemplate.privacy !== "public") {
+          throw new ForbiddenError("비공개 템플릿의 보드는 복사할 수 없습니다.");
+        }
+
+        // 대상 템플릿 조회
+        const targetTemplate = await TemplateModel.findByUuid(targetTemplateUuid, connection);
+        if (!targetTemplate) {
+          throw new NotFoundError("대상 템플릿을 찾을 수 없습니다.");
+        }
+
+        // 대상 템플릿 수정 권한 확인
+        await this.validateEditPermissionById(userId, targetTemplate.template_id);
+
+        // 대상 템플릿의 마지막 day_number 조회
+        const lastDayNumber = await BoardModel.getLastDayNumber(targetTemplate.template_id, connection);
+
+        // 15일차 제한 확인
+        if (lastDayNumber >= 15) {
+          throw new ForbiddenError("해당 템플릿은 최대 15일차까지 등록할 수 있습니다. 기존 일정을 정리한 후 다시 시도해주세요.");
+        }
+
+        // 보드 복사
+        const newBoardUuid = await BoardModel.create(
+          targetTemplate.template_id,
+          lastDayNumber + 1,
+          connection
+        );
+
+        // 새 보드 조회
+        const newBoard = await BoardModel.findByUuid(newBoardUuid, connection);
+
+        // 원본 보드의 카드들 조회
+        const sourceCards = await CardModel.findAllByBoardId(sourceBoard.board_id, connection);
+
+        // 각 카드 복사 (copyToBoard 메서드 사용)
+        for (const sourceCard of sourceCards as any[]) {
+          await CardModel.copyToBoard(
+            sourceCard.card_id,
+            newBoard.board_id,
+            connection
+          );
+        }
+
+        // 원본 템플릿의 shared_count 증가 (본인 템플릿이 아닌 경우에만)
+        if (sourceTemplate.user_id !== parseInt(userId)) {
+          await TemplateModel.incrementSharedCount(sourceTemplate.template_id, connection);
+        }
+
+        return newBoardUuid;
+      }
+    );
+  }
+
+  /**
+   * 템플릿 전체 복사 (다른 사람의 공개 템플릿을 내 템플릿으로)
+   * @param userId 사용자 id
+   * @param sourceTemplateUuid 원본 템플릿 uuid
+   * @param newTitle 새 템플릿 제목 (선택)
+   * @returns 복사된 템플릿 uuid
+   */
+  static async copyTemplate(
+    userId: string,
+    sourceTemplateUuid: string,
+    newTitle?: string
+  ): Promise<string> {
+    return await TransactionHandler.executeInTransaction(
+      dbPool,
+      async (connection) => {
+        // 원본 템플릿 조회
+        const sourceTemplate = await TemplateModel.findByUuid(sourceTemplateUuid, connection);
+        if (!sourceTemplate) {
+          throw new NotFoundError("원본 템플릿을 찾을 수 없습니다.");
+        }
+
+        // 원본 템플릿이 public인지 확인 (본인 템플릿이 아닌 경우)
+        if (sourceTemplate.user_id !== parseInt(userId) && sourceTemplate.privacy !== "public") {
+          throw new ForbiddenError("비공개 템플릿은 복사할 수 없습니다.");
+        }
+
+        // 새 템플릿 생성
+        const title = newTitle || `${sourceTemplate.title} (복사본)`;
+        const newTemplateUuid = await TemplateModel.create(userId, title, connection);
+        const newTemplate = await TemplateModel.findByUuid(newTemplateUuid, connection);
+
+        // 기본 보드 삭제 (create 시 자동 생성된 보드)
+        const defaultBoards = await BoardModel.findAllByTemplateId(newTemplate.template_id, connection);
+        for (const board of defaultBoards as any[]) {
+          await BoardModel.deleteById(board.board_id, connection);
+        }
+
+        // 원본 템플릿의 보드들 조회
+        const sourceBoards = await BoardModel.findAllByTemplateId(sourceTemplate.template_id, connection);
+
+        // 각 보드 복사
+        for (const sourceBoard of sourceBoards as any[]) {
+          const newBoardUuid = await BoardModel.create(
+            newTemplate.template_id,
+            sourceBoard.day_number,
+            connection
+          );
+          const newBoard = await BoardModel.findByUuid(newBoardUuid, connection);
+
+          // 원본 보드의 카드들 조회
+          const sourceCards = await CardModel.findAllByBoardId(sourceBoard.board_id, connection);
+
+          // 각 카드 복사 (copyToBoard 메서드 사용)
+          for (const sourceCard of sourceCards as any[]) {
+            await CardModel.copyToBoard(
+              sourceCard.card_id,
+              newBoard.board_id,
+              connection
+            );
+          }
+        }
+
+        // 원본 템플릿의 shared_count 증가 (본인 템플릿이 아닌 경우에만)
+        if (sourceTemplate.user_id !== parseInt(userId)) {
+          await TemplateModel.incrementSharedCount(sourceTemplate.template_id, connection);
+        }
+
+        return newTemplateUuid;
+      }
+    );
+  }
+
+  /**
+   * 인기 공개 템플릿 조회 (퍼가기 횟수 기준)
+   * @param limit 조회 개수
+   * @returns 인기 공개 템플릿 목록
+   */
+  static async getPopularPublicTemplates(limit: number = 5) {
+    const templates = await TemplateModel.findPopularPublicTemplates(limit, dbPool);
+    return templates.map((template: any) => this.formatPopularTemplate(template));
+  }
+
+  /**
+   * 공개 템플릿 uuid로 템플릿 조회 (비로그인 사용자용)
+   * @param templateUuid 템플릿 uuid
+   * @returns 조회된 템플릿
+   */
+  static async getPublicTemplateByUuid(templateUuid: string) {
+    // 템플릿 조회
+    const template = await TemplateModel.findByUuid(templateUuid, dbPool);
+    if (!template) {
+      throw new NotFoundError("템플릿을 찾을 수 없습니다.");
+    }
+
+    // 공개 템플릿인지 확인
+    if (template.privacy !== "public") {
+      throw new ForbiddenError("비공개 템플릿은 조회할 수 없습니다.");
+    }
+
+    // 보드 조회
+    const boards = await BoardModel.findAllByTemplateId(
+      template.template_id,
+      dbPool
+    );
+    template.boards = boards;
+
+    // 각 보드의 카드 조회
+    for (const board of boards as any[]) {
+      const cards = await CardModel.findAllByBoardId(board.board_id, dbPool);
+      board.cards = cards;
+    }
+
+    // 각 카드의 위치 정보 조회
+    for (const board of boards as any[]) {
+      for (const card of board.cards as any[]) {
+        const location = await LocationModel.findByCardId(card.card_id, dbPool);
+        card.location = location;
+      }
+    }
+
+    // 템플릿 반환
+    const formattedTemplates = this.formatTemplate(template);
+    return formattedTemplates;
   }
 }
 
