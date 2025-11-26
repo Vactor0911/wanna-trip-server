@@ -199,9 +199,6 @@ class TemplateService {
 
     // 사용자 조회
     const user = await UserModel.findById(userId, dbPool);
-    if (!user) {
-      throw new NotFoundError("사용자를 찾을 수 없습니다.");
-    }
 
     // 공동 작업자 조회
     const collaborators = await CollaboratorModel.findAllByTemplateId(
@@ -209,7 +206,7 @@ class TemplateService {
       dbPool
     );
     const isCollaborator = collaborators.some(
-      (collaborator: any) => collaborator.user_uuid === user.user_uuid
+      (collaborator: any) => collaborator.user_uuid === user?.user_uuid
     );
 
     // 템플릿 공개 설정 확인
