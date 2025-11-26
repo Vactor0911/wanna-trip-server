@@ -13,6 +13,12 @@ import {
   updateTemplateParamsSchema,
   updateTemplatePrivacyBodySchema,
   updateTemplatePrivacyParamsSchema,
+  copyTemplateParamsSchema,
+  copyTemplateBodySchema,
+  copyBoardParamsSchema,
+  copyBoardBodySchema,
+  copyCardParamsSchema,
+  copyCardBodySchema,
 } from "../schema/template.schema";
 
 const templateRouter = express.Router();
@@ -31,6 +37,17 @@ templateRouter.get(
 
 // 인기 템플릿 조회
 templateRouter.get("/popular", limiter, TemplateController.getPopularTemplates);
+
+// 인기 공개 템플릿 조회 (퍼가기 횟수 기준)
+templateRouter.get("/popular/public", limiter, TemplateController.getPopularPublicTemplates);
+
+// 공개 템플릿 조회 (비로그인 사용자용)
+templateRouter.get(
+  "/public/:templateUuid",
+  limiter,
+  validateParams(getTemplateSchema),
+  TemplateController.getPublicTemplate
+);
 
 // UUID로 특정 템플릿 조회
 templateRouter.get(
@@ -51,6 +68,36 @@ templateRouter.post(
   authenticateToken,
   validateBody(createTemplateSchema),
   TemplateController.createTemplate
+);
+
+// 템플릿 복사
+templateRouter.post(
+  "/copy/:sourceTemplateUuid",
+  limiter,
+  authenticateToken,
+  validateParams(copyTemplateParamsSchema),
+  validateBody(copyTemplateBodySchema),
+  TemplateController.copyTemplate
+);
+
+// 보드 복사
+templateRouter.post(
+  "/board/copy/:sourceBoardUuid",
+  limiter,
+  authenticateToken,
+  validateParams(copyBoardParamsSchema),
+  validateBody(copyBoardBodySchema),
+  TemplateController.copyBoard
+);
+
+// 카드 복사
+templateRouter.post(
+  "/card/copy/:sourceCardUuid",
+  limiter,
+  authenticateToken,
+  validateParams(copyCardParamsSchema),
+  validateBody(copyCardBodySchema),
+  TemplateController.copyCard
 );
 
 // 템플릿 내 모든 보드의 카드 정렬하기

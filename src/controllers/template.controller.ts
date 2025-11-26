@@ -194,6 +194,115 @@ class TemplateController {
       });
     }
   );
+
+  /**
+   * 템플릿 복사
+   */
+  static copyTemplate = asyncHandler(async (req: Request, res: Response) => {
+    const userId = req?.user?.userId!;
+    const { sourceTemplateUuid } = req.params;
+    const { title } = req.body;
+
+    // 템플릿 복사
+    const newTemplateUuid = await TemplateService.copyTemplate(
+      userId,
+      sourceTemplateUuid,
+      title
+    );
+
+    // 응답 반환
+    res.status(201).json({
+      success: true,
+      message: "템플릿이 성공적으로 복사되었습니다.",
+      templateUuid: newTemplateUuid,
+    });
+  });
+
+  /**
+   * 보드 복사
+   */
+  static copyBoard = asyncHandler(async (req: Request, res: Response) => {
+    const userId = req?.user?.userId!;
+    const { sourceBoardUuid } = req.params;
+    const { targetTemplateUuid } = req.body;
+
+    // 보드 복사
+    const newBoardUuid = await TemplateService.copyBoard(
+      userId,
+      sourceBoardUuid,
+      targetTemplateUuid
+    );
+
+    // 응답 반환
+    res.status(201).json({
+      success: true,
+      message: "보드가 성공적으로 복사되었습니다.",
+      boardUuid: newBoardUuid,
+    });
+  });
+
+  /**
+   * 카드 복사
+   */
+  static copyCard = asyncHandler(async (req: Request, res: Response) => {
+    const userId = req?.user?.userId!;
+    const { sourceCardUuid } = req.params;
+    const { targetBoardUuid } = req.body;
+
+    // 카드 복사
+    const newCardId = await TemplateService.copyCard(
+      userId,
+      sourceCardUuid,
+      targetBoardUuid
+    );
+
+    // 응답 반환
+    res.status(201).json({
+      success: true,
+      message: "카드가 성공적으로 복사되었습니다.",
+      cardId: newCardId,
+    });
+  });
+
+  /**
+   * 인기 공개 템플릿 조회 (퍼가기 횟수 기준)
+   */
+  static getPopularPublicTemplates = asyncHandler(
+    async (req: Request, res: Response) => {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 5;
+
+      // 인기 공개 템플릿 조회
+      const popularTemplates = await TemplateService.getPopularPublicTemplates(limit);
+
+      // 응답 반환
+      res.status(200).json({
+        success: true,
+        message: "인기 공개 템플릿이 성공적으로 조회되었습니다.",
+        popularTemplates,
+      });
+    }
+  );
+
+  /**
+   * 공개 템플릿 조회 (비로그인 사용자용)
+   */
+  static getPublicTemplate = asyncHandler(
+    async (req: Request, res: Response) => {
+      const { templateUuid } = req.params;
+
+      // 템플릿 조회 (비로그인 사용자용이므로 userId 없이 조회)
+      const template = await TemplateService.getPublicTemplateByUuid(templateUuid);
+
+      // 응답 반환
+      res.status(200).json({
+        success: true,
+        message: "공개 템플릿이 성공적으로 조회되었습니다.",
+        template,
+        isOwner: false,
+        hasPermission: false,
+      });
+    }
+  );
 }
 
 export default TemplateController;

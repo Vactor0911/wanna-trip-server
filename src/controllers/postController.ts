@@ -357,8 +357,17 @@ export const addPost = async (req: Request, res: Response) => {
         throw new Error("게시글 작성 실패");
       }
 
+      // 템플릿이 등록된 경우 해당 템플릿을 public으로 변경
+      if (templateUuid) {
+        await connection.query(
+          `UPDATE template SET privacy = 'public' WHERE template_uuid = ?`,
+          [templateUuid]
+        );
+      }
+
       // 트랜잭션 커밋
       await connection.commit();
+      connection.release();
 
       // 작성 결과 반환
       res.status(201).json({
@@ -376,6 +385,8 @@ export const addPost = async (req: Request, res: Response) => {
     } catch (error) {
       // 오류 발생 시 롤백
       await connection.rollback();
+      connection.release();
+      throw error;
     }
   } catch (err) {
     console.error("게시글 작성 오류:", err);
