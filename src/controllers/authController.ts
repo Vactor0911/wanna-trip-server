@@ -12,6 +12,7 @@ const allowedSymbolsForPassword = /^[a-zA-Z0-9!@#$%^&*?]*$/; // 허용된 문자
 import { dbPool } from "../config/db";
 import path from "path";
 import TemplateService from "../services/template.service";
+import NotificationService from "../services/notification.service";
 
 // 사용자 회원가입
 export const register = async (req: Request, res: Response) => {
@@ -895,6 +896,10 @@ export const resetPassword = async (req: Request, res: Response) => {
 
     await connection.commit();
 
+    // 비밀번호 변경 알림 생성 (비동기)
+    NotificationService.createPasswordChangeNotification(user.user_uuid)
+      .catch((err) => console.error("비밀번호 변경 알림 생성 실패:", err));
+
     res.status(200).json({
       success: true,
       message: "비밀번호가 성공적으로 변경되었습니다.",
@@ -1237,7 +1242,7 @@ export const updateNickname = async (req: Request, res: Response) => {
 // 비밀번호 변경
 export const updatePassword = async (req: Request, res: Response) => {
   const { currentPassword, newPassword, confirmNewPassword } = req.body;
-  const user = req.user as { userId: number };
+  const user = req.user as { userId: number; userUuid: string };
   const connection = await dbPool.getConnection();
 
   try {
@@ -1337,6 +1342,10 @@ export const updatePassword = async (req: Request, res: Response) => {
     ]);
 
     await connection.commit();
+
+    // 비밀번호 변경 알림 생성 (비동기)
+    NotificationService.createPasswordChangeNotification(user.userUuid)
+      .catch((err) => console.error("비밀번호 변경 알림 생성 실패:", err));
 
     res.status(200).json({
       success: true,
