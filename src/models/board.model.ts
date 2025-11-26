@@ -122,7 +122,7 @@ class BoardModel {
       // 기존 카드와 연결된 장소 조회
       const locations = await connection.execute(
         `
-        SELECT title, address, latitude, longitude, category, thumbnail_url, duration
+        SELECT title, address, latitude, longitude, category, thumbnail_url
         FROM location
         WHERE card_id = ?;
         `,
@@ -133,8 +133,8 @@ class BoardModel {
       for (const location of locations) {
         await connection.execute(
           `
-          INSERT INTO location (card_id, title, address, latitude, longitude, category, thumbnail_url, duration)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+          INSERT INTO location (card_id, title, address, latitude, longitude, category, thumbnail_url)
+          VALUES (?, ?, ?, ?, ?, ?, ?);
           `,
           [
             newCard.card_id,
@@ -144,7 +144,6 @@ class BoardModel {
             location.longitude,
             location.category,
             location.thumbnail_url,
-            location.duration,
           ]
         );
       }
