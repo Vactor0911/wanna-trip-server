@@ -4,6 +4,7 @@ import { socketHandler } from "../middleware/socketHandler";
 import UserSocket from "./user.socket";
 import TemplateSocket from "./template.socket";
 import CardSocket from "./card.socket";
+import NotificationSocket from "./notification.socket";
 
 // Socket.io 서버 인스턴스
 let io: Server;
@@ -47,6 +48,9 @@ export const initializeSocketServer = (httpServer: HttpServer) => {
      * 연결 이벤트
      */
 
+    // 알림 Room 연결 (로그인된 사용자)
+    NotificationSocket.joinNotificationRoom(socket);
+
     // 템플릿 Room 연결
     socket.on("template:join", (data: { templateUuid: string }) => {
       TemplateSocket.joinTemplate(socket, data.templateUuid);
@@ -69,6 +73,9 @@ export const initializeSocketServer = (httpServer: HttpServer) => {
 
     // 소켓 연결 해제
     socket.on("disconnect", () => {
+      // 알림 Room 퇴장
+      NotificationSocket.leaveNotificationRoom(socket);
+
       const templateUuid = socket.data.templateUuid;
       if (templateUuid) {
         handleUserLeave(socket, templateUuid);
