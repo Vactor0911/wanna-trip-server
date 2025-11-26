@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { dbPool } from "../config/db";
 import { v4 as uuidv4 } from "uuid";
+import NotificationService from "../services/notification.service";
 
 // 페이지로 게시글 목록 조회
 export const getPostsByPage = async (req: Request, res: Response) => {
@@ -729,6 +730,47 @@ export const createComment = async (req: Request, res: Response) => {
 
     const comment = newComment[0];
 
+    // 알림 생성 (비동기로 처리하여 응답 속도 영향 없게)
+    try {
+      if (parentCommentUuid) {
+        // 대댓글인 경우: 원 댓글 작성자에게 알림
+        const parentComment = await dbPool.query(
+          "SELECT user_uuid FROM post_comment WHERE comment_uuid = ?",
+          [parentCommentUuid]
+        );
+        if (parentComment.length > 0) {
+          const parentCommentOwnerUuid = parentComment[0].user_uuid;
+          NotificationService.createReplyNotification(
+            parentCommentOwnerUuid,
+            userUuid,
+            comment.author_name,
+            postUuid,
+            parentCommentUuid,
+            commentUuid
+          ).catch((err) => console.error("대댓글 알림 생성 실패:", err));
+        }
+      } else {
+        // 일반 댓글인 경우: 게시글 작성자에게 알림
+        const post = await dbPool.query(
+          "SELECT user_uuid FROM post WHERE post_uuid = ?",
+          [postUuid]
+        );
+        if (post.length > 0) {
+          const postOwnerUuid = post[0].user_uuid;
+          NotificationService.createCommentNotification(
+            postOwnerUuid,
+            userUuid,
+            comment.author_name,
+            postUuid,
+            commentUuid
+          ).catch((err) => console.error("댓글 알림 생성 실패:", err));
+        }
+      }
+    } catch (notificationError) {
+      console.error("알림 생성 중 오류:", notificationError);
+      // 알림 실패해도 댓글 작성은 성공으로 처리
+    }
+
     res.status(201).json({
       success: true,
       message: "댓글이 작성되었습니다.",
@@ -1049,6 +1091,99 @@ export const toggleLike = async (req: Request, res: Response) => {
         );
 
         await connection.commit();
+
+        // 좋아요 알림 생성 (비동기 처리)
+        try {
+          // 현재 사용자 이름 조회
+          const currentUser = await dbPool.query(
+            "SELECT name FROM user WHERE user_uuid = ?",
+            [userUuid]
+          );
+          const actorName = currentUser.length > 0 ? currentUser[0].name : "사용자";
+
+          if (targetType === "post") {
+            // 게시글 좋아요 알림
+            const post = await dbPool.query(
+              "SELECT user_uuid, title FROM post WHERE post_uuid = ?",
+              [targetUuid]
+            );
+            if (post.length > 0) {
+              NotificationService.createPostLikeNotification(
+                post[0].user_uuid,
+                userUuid,
+                actorName,
+                targetUuid
+              ).catch((err) => console.error("게시글 좋아요 알림 생성 실패:", err));
+
+              // 인기 게시글 알림 체크 (1, 2, 3등 진입 시 알림)
+              // 좋아요 수 기준, 동점 시 공유 수로 정렬
+              const popularPostsResult = await dbPool.query(
+                `SELECT 
+                  p.post_uuid,
+                  p.user_uuid,
+                  p.title,
+                  COALESCE(l.like_count, 0) AS like_count,
+                  p.shares
+                FROM post p
+                LEFT JOIN (
+                  SELECT target_uuid, COUNT(*) AS like_count
+                  FROM likes
+                  WHERE target_type = 'post'
+                  GROUP BY target_uuid
+                ) l ON p.post_uuid COLLATE utf8mb4_unicode_ci = l.target_uuid COLLATE utf8mb4_unicode_ci
+                ORDER BY like_count DESC, p.shares DESC
+                LIMIT 3`
+              );
+
+              // 현재 게시글이 1, 2, 3등에 포함되는지 확인
+              const rankIndex = popularPostsResult.findIndex(
+                (p: any) => p.post_uuid === targetUuid
+              );
+
+              if (rankIndex !== -1) {
+                const rank = rankIndex + 1; // 1, 2, 3등
+                const rankedPost = popularPostsResult[rankIndex];
+
+                // 이미 해당 순위로 알림을 받았는지 확인 (중복 알림 방지)
+                const existingNotification = await dbPool.query(
+                  `SELECT notification_id FROM notification 
+                   WHERE user_uuid = ? 
+                   AND type = 'popular_post' 
+                   AND target_uuid = ?
+                   AND JSON_EXTRACT(metadata, '$.rank') = ?`,
+                  [rankedPost.user_uuid, targetUuid, rank]
+                );
+
+                if (existingNotification.length === 0) {
+                  NotificationService.createPopularPostNotification(
+                    rankedPost.user_uuid,
+                    targetUuid,
+                    rankedPost.title,
+                    rank
+                  ).catch((err) => console.error(`인기 게시글 ${rank}등 알림 생성 실패:`, err));
+                }
+              }
+            }
+          } else if (targetType === "comment") {
+            // 댓글 좋아요 알림
+            const comment = await dbPool.query(
+              "SELECT user_uuid, post_uuid FROM post_comment WHERE comment_uuid = ?",
+              [targetUuid]
+            );
+            if (comment.length > 0) {
+              NotificationService.createCommentLikeNotification(
+                comment[0].user_uuid,
+                userUuid,
+                actorName,
+                comment[0].post_uuid,
+                targetUuid
+              ).catch((err) => console.error("댓글 좋아요 알림 생성 실패:", err));
+            }
+          }
+        } catch (notificationError) {
+          console.error("좋아요 알림 생성 중 오류:", notificationError);
+          // 알림 실패해도 좋아요는 성공으로 처리
+        }
 
         res.status(200).json({
           success: true,
