@@ -21,8 +21,6 @@ class NotificationSocket {
       userSockets.set(userUuid, new Set());
     }
     userSockets.get(userUuid)?.add(socket.id);
-
-    console.log(`[Notification] User ${userUuid} joined notification room`);
   }
 
   /**
@@ -44,8 +42,6 @@ class NotificationSocket {
         userSockets.delete(userUuid);
       }
     }
-
-    console.log(`[Notification] User ${userUuid} left notification room`);
   }
 
   /**
