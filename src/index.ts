@@ -18,6 +18,7 @@ import {
   collaboratorRoute,
   userRouter,
   chatRoute,
+  notificationRoute,
 } from "./routes";
 import { initializeSocketServer } from "./socket";
 import { createServer } from "http";
@@ -113,6 +114,7 @@ app.use("/post", postRoute); // 게시글 관련
 app.use("/collaborator", collaboratorRoute); // 공동 작업자 관련
 app.use("/user", userRouter); // 사용자 관련
 app.use("/chat", chatRoute); // AI 챗봇 관련
+app.use("/notification", notificationRoute); // 알림 관련
 
 // *** 라우트 정의 끝 ***
 
