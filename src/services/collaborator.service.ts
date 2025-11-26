@@ -5,6 +5,7 @@ import CollaboratorModel from "../models/collaborator.model";
 import TemplateModel from "../models/template.model";
 import TransactionHandler from "../utils/transactionHandler";
 import TemplateService from "./template.service";
+import NotificationService from "./notification.service";
 
 class CollaboratorService {
   /**
@@ -78,12 +79,26 @@ class CollaboratorService {
           );
         }
 
+        // 템플릿 소유자 정보 조회 (알림용)
+        const owner = await AuthModel.findById(template.user_id, connection);
+
         // 공동 작업자 추가
         await CollaboratorModel.create(
           template.template_id,
           collaborator.user_id,
           connection
         );
+
+        // 공동 작업자에게 알림 전송 (비동기)
+        if (owner) {
+          NotificationService.createCollaboratorNotification(
+            collaboratorUuid,
+            owner.user_uuid,
+            owner.name,
+            templateUuid,
+            template.title
+          ).catch((err) => console.error("공동 작업자 알림 생성 실패:", err));
+        }
       }
     );
   }
