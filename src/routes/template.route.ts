@@ -1,5 +1,5 @@
 import express from "express";
-import { authenticateToken } from "../middleware/authenticate";
+import { authenticateToken, optionalAuthenticate } from "../middleware/authenticate";
 import { csrfProtection, limiter } from "../utils";
 import TemplateController from "../controllers/template.controller";
 import { validateBody, validateParams } from "../middleware/validation";
@@ -36,7 +36,7 @@ templateRouter.get("/popular", limiter, TemplateController.getPopularTemplates);
 templateRouter.get(
   "/:templateUuid",
   limiter,
-  authenticateToken,
+  optionalAuthenticate,
   validateParams(getTemplateSchema),
   TemplateController.getTemplate
 );
