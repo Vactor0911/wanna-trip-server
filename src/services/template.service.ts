@@ -715,6 +715,41 @@ class TemplateService {
     const formattedTemplates = this.formatTemplate(template);
     return formattedTemplates;
   }
+
+  /**
+   * 공유 받은 템플릿 목록 조회 (공동 작업자로 추가된 템플릿)
+   * @param userId 사용자 id
+   * @returns 공유 받은 템플릿 목록
+   */
+  static async getSharedTemplatesByUserId(userId: string) {
+    // 공유 받은 템플릿 조회
+    const templates = await CollaboratorModel.findAllTemplatesByUserId(userId, dbPool);
+
+    // 템플릿 반환
+    const formattedTemplates = (templates as any[]).map((template: any) =>
+      this.formatSharedTemplate(template)
+    );
+    return formattedTemplates;
+  }
+
+  /**
+   * 공유 받은 템플릿 객체 포맷팅
+   * @param template 템플릿 객체
+   * @returns 포맷팅된 템플릿 객체
+   */
+  static formatSharedTemplate(template: any) {
+    return {
+      uuid: template.template_uuid,
+      title: template.title,
+      createdAt: template.created_at,
+      updatedAt: template.updated_at,
+      sharedCount: template.shared_count,
+      thumbnailUrl: template.thumbnail_url,
+      ownerName: template.owner_name,
+      ownerProfileImage: template.owner_profile_image,
+      boardCount: template.board_count ? Number(template.board_count) : undefined,
+    };
+  }
 }
 
 export default TemplateService;
