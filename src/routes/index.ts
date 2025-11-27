@@ -9,6 +9,7 @@ import collaboratorRoute from "./collaborator.route";
 import userRouter from "./user.route";
 import chatRoute from "./chatRoute";
 import notificationRoute from "./notification.route";
+import newsRoute from "./news.route";
 
 export {
   authRoute,
@@ -22,4 +23,5 @@ export {
   userRouter,
   chatRoute,
   notificationRoute,
+  newsRoute,
 };
