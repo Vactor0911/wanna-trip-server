@@ -39,6 +39,24 @@ class TemplateController {
   });
 
   /**
+   * 템플릿 일괄 삭제
+   */
+  static bulkDeleteTemplates = asyncHandler(async (req: Request, res: Response) => {
+    const userId = req?.user?.userId!;
+    const { templateUuids } = req.body;
+
+    // 템플릿 일괄 삭제
+    const result = await TemplateService.bulkDeleteTemplates(userId, templateUuids);
+
+    // 응답 반환
+    res.status(200).json({
+      success: true,
+      message: `${result.successCount}개의 템플릿이 삭제되었습니다.${result.failCount > 0 ? ` (${result.failCount}개 실패)` : ""}`,
+      ...result,
+    });
+  });
+
+  /**
    * 템플릿 목록 조회
    */
   static getTemplates = asyncHandler(async (req: Request, res: Response) => {

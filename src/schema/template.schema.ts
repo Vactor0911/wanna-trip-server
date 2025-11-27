@@ -18,6 +18,16 @@ export const deleteTemplateSchema = z.object({
 });
 
 /**
+ * 템플릿 일괄 삭제 스키마
+ */
+export const bulkDeleteTemplatesSchema = z.object({
+  templateUuids: z
+    .array(z.uuid("템플릿 UUID 형식이 올바르지 않습니다."))
+    .min(1, "삭제할 템플릿을 1개 이상 선택해주세요.")
+    .max(100, "한 번에 최대 100개까지 삭제할 수 있습니다."),
+});
+
+/**
  * 템플릿 조회 스키마
  */
 export const getTemplateSchema = z.object({
