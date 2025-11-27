@@ -303,6 +303,25 @@ class TemplateController {
       });
     }
   );
+
+  /**
+   * 공유 받은 템플릿 목록 조회 (공동 작업자로 추가된 템플릿)
+   */
+  static getSharedTemplates = asyncHandler(
+    async (req: Request, res: Response) => {
+      const userId = req?.user?.userId!;
+
+      // 공유 받은 템플릿 목록 조회
+      const templates = await TemplateService.getSharedTemplatesByUserId(userId);
+
+      // 응답 반환
+      res.status(200).json({
+        success: true,
+        message: "공유 받은 템플릿 목록이 성공적으로 조회되었습니다.",
+        templates,
+      });
+    }
+  );
 }
 
 export default TemplateController;

@@ -49,6 +49,14 @@ templateRouter.get(
   TemplateController.getPublicTemplate
 );
 
+// 공유 받은 템플릿 목록 조회
+templateRouter.get(
+  "/shared",
+  limiter,
+  authenticateToken,
+  TemplateController.getSharedTemplates
+);
+
 // UUID로 특정 템플릿 조회
 templateRouter.get(
   "/:templateUuid",

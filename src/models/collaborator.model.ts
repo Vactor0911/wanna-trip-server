@@ -105,6 +105,48 @@ class CollaboratorModel {
       [templateId, userId]
     );
   }
+
+  /**
+   * 사용자 id로 공유 받은 모든 템플릿 조회
+   * @param userId 사용자 id
+   * @param connection 데이터베이스 연결 객체
+   * @returns 공유 받은 템플릿 목록
+   */
+  static async findAllTemplatesByUserId(
+    userId: string,
+    connection: PoolConnection | Pool
+  ) {
+    const templates = await connection.execute(
+      `
+        SELECT 
+          t.template_uuid,
+          t.title,
+          t.created_at,
+          t.updated_at,
+          t.shared_count,
+          u.name as owner_name,
+          u.profile_image as owner_profile_image,
+          (SELECT COUNT(*) FROM board WHERE template_id = t.template_id) as board_count,
+          (
+            SELECT l.thumbnail_url
+            FROM board b
+            JOIN card c ON b.board_id = c.board_id
+            JOIN location l ON c.card_id = l.card_id
+            WHERE b.template_id = t.template_id
+              AND l.thumbnail_url IS NOT NULL
+            ORDER BY b.day_number ASC, c.order_index ASC
+            LIMIT 1
+          ) AS thumbnail_url
+        FROM collaborator c
+        JOIN template t ON c.template_id = t.template_id
+        JOIN user u ON t.user_id = u.user_id
+        WHERE c.user_id = ?
+        ORDER BY c.created_at DESC
+      `,
+      [userId]
+    );
+    return templates;
+  }
 }
 
 export default CollaboratorModel;
