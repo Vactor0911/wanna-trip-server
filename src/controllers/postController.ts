@@ -33,7 +33,14 @@ export const getPostsByPage = async (req: Request, res: Response) => {
             AND loc.thumbnail_url IS NOT NULL
           ORDER BY b.day_number ASC, ca.order_index ASC
           LIMIT 1
-        ) AS template_thumbnail
+        ) AS template_thumbnail,
+        /* 템플릿 퍼가기 수 */
+        (
+          SELECT COALESCE(t.shared_count, 0)
+          FROM template t
+          WHERE t.template_uuid COLLATE utf8mb4_unicode_ci = p.template_uuid COLLATE utf8mb4_unicode_ci
+          LIMIT 1
+        ) AS template_shared_count
       FROM post AS p
 
       /* 좋아요 수 */
@@ -104,7 +111,7 @@ export const getPostsByPage = async (req: Request, res: Response) => {
         tags: post.tag ? post.tag.split(",") : [],
         liked: req.user ? !!post.liked : false,
         likes: Number(post.like_count || 0),
-        shares: Number(post.shares || 0),
+        shares: Number(post.template_shared_count || 0),
         views: Number(post.views || 0),
         content: post.content,
         comments: Number(post.comments || 0),
@@ -152,7 +159,14 @@ export const getPopularPosts = async (req: Request, res: Response) => {
             AND loc.thumbnail_url IS NOT NULL
           ORDER BY b.day_number ASC, ca.order_index ASC
           LIMIT 1
-        ) AS template_thumbnail
+        ) AS template_thumbnail,
+        /* 템플릿 퍼가기 수 */
+        (
+          SELECT COALESCE(t.shared_count, 0)
+          FROM template t
+          WHERE t.template_uuid COLLATE utf8mb4_unicode_ci = p.template_uuid COLLATE utf8mb4_unicode_ci
+          LIMIT 1
+        ) AS template_shared_count
       FROM post AS p
 
       /* 작성자 */
@@ -218,7 +232,7 @@ export const getPopularPosts = async (req: Request, res: Response) => {
         content: post.content,
         liked: req.user ? !!post.liked : false,
         likes: Number(post.like_count || 0),
-        shares: Number(post.shares || 0),
+        shares: Number(post.template_shared_count || 0),
         views: Number(post.views || 0),
         comments: Number(post.comments || 0),
         thumbnail, // 썸네일 (내용 이미지 > 템플릿 썸네일)
@@ -258,7 +272,8 @@ export const getPostByUuid = async (req: Request, res: Response) => {
         u.name AS author_name, 
         u.profile_image AS author_profile,
         (SELECT COUNT(*) FROM likes WHERE target_type = 'post' AND target_uuid = p.post_uuid COLLATE utf8mb4_unicode_ci) AS likes_count,
-        (SELECT EXISTS(SELECT 1 FROM likes WHERE target_type = 'post' AND target_uuid = p.post_uuid COLLATE utf8mb4_unicode_ci AND user_uuid = ? COLLATE utf8mb4_unicode_ci)) AS user_liked
+        (SELECT EXISTS(SELECT 1 FROM likes WHERE target_type = 'post' AND target_uuid = p.post_uuid COLLATE utf8mb4_unicode_ci AND user_uuid = ? COLLATE utf8mb4_unicode_ci)) AS user_liked,
+        (SELECT COALESCE(t.shared_count, 0) FROM template t WHERE t.template_uuid COLLATE utf8mb4_unicode_ci = p.template_uuid COLLATE utf8mb4_unicode_ci LIMIT 1) AS template_shared_count
       FROM post p
       LEFT JOIN user u ON p.user_uuid COLLATE utf8mb4_unicode_ci = u.user_uuid
       WHERE p.post_uuid = ?
@@ -291,7 +306,7 @@ export const getPostByUuid = async (req: Request, res: Response) => {
         createdAt: post.created_at,
         likes: Number(post.likes_count || 0),
         liked: req.user ? !!post.user_liked : false, // 명시적으로 로그인 유무 확인
-        shares: Number(post.shares || 0),
+        shares: Number(post.template_shared_count || 0),
         views: Number(post.views || 0),
       },
     });
@@ -1262,7 +1277,14 @@ export const getLikedPosts = async (req: Request, res: Response) => {
             AND loc.thumbnail_url IS NOT NULL
           ORDER BY b.day_number ASC, ca.order_index ASC
           LIMIT 1
-        ) AS template_thumbnail
+        ) AS template_thumbnail,
+        /* 템플릿 퍼가기 수 */
+        (
+          SELECT COALESCE(t.shared_count, 0)
+          FROM template t
+          WHERE t.template_uuid COLLATE utf8mb4_unicode_ci = p.template_uuid COLLATE utf8mb4_unicode_ci
+          LIMIT 1
+        ) AS template_shared_count
       FROM likes AS l
 
       /* 게시글 정보 */
@@ -1319,7 +1341,7 @@ export const getLikedPosts = async (req: Request, res: Response) => {
         authorProfileImage: post.author_profile_image,
         liked: true,
         likes: Number(post.like_count || 0),
-        shares: Number(post.shares || 0),
+        shares: Number(post.template_shared_count || 0),
         content: post.content,
         comments: Number(post.comments || 0),
         thumbnail,
