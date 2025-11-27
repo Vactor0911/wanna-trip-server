@@ -61,6 +61,40 @@ class TemplateService {
   }
 
   /**
+   * 템플릿 일괄 삭제
+   * @param userId 사용자 id
+   * @param templateUuids 삭제할 템플릿 uuid 배열
+   * @returns 삭제 결과 (성공/실패 개수)
+   */
+  static async bulkDeleteTemplates(userId: string, templateUuids: string[]) {
+    let successCount = 0;
+    let failCount = 0;
+    const failedUuids: string[] = [];
+
+    for (const templateUuid of templateUuids) {
+      try {
+        await TransactionHandler.executeInTransaction(
+          dbPool,
+          async (connection) => {
+            // 템플릿 수정 권한 확인
+            await this.validateEditPermissionByUuid(userId, templateUuid);
+
+            // 템플릿 삭제
+            await TemplateModel.deleteByUuid(templateUuid, connection);
+          }
+        );
+        successCount++;
+      } catch (error) {
+        failCount++;
+        failedUuids.push(templateUuid);
+        console.error(`템플릿 삭제 실패 (${templateUuid}):`, error);
+      }
+    }
+
+    return { successCount, failCount, failedUuids };
+  }
+
+  /**
    * 사용자 id로 템플릿 목록 조회
    * @param userId 사용자 id
    * @returns 템플릿 목록

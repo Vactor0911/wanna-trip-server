@@ -6,6 +6,7 @@ import { validateBody, validateParams } from "../middleware/validation";
 import {
   createTemplateSchema,
   deleteTemplateSchema,
+  bulkDeleteTemplatesSchema,
   getTemplatePrivacySchema,
   getTemplateSchema,
   sortCardsSchema,
@@ -147,6 +148,15 @@ templateRouter.delete(
   authenticateToken,
   validateParams(deleteTemplateSchema),
   TemplateController.deleteTemplate
+);
+
+// 템플릿 일괄 삭제
+templateRouter.post(
+  "/bulk-delete",
+  limiter,
+  authenticateToken,
+  validateBody(bulkDeleteTemplatesSchema),
+  TemplateController.bulkDeleteTemplates
 );
 
 export default templateRouter;
