@@ -72,6 +72,22 @@ class UserModel {
     );
     return users;
   }
+
+  /**
+   * 모든 활성 사용자의 UUID 목록 조회
+   * @param connection 데이터베이스 연결 객체
+   * @returns 사용자 UUID 목록
+   */
+  static async findAllActiveUserUuids(connection: PoolConnection | Pool): Promise<string[]> {
+    const users = await connection.execute(
+      `
+        SELECT user_uuid
+        FROM user
+        WHERE state = 'active'
+      `
+    );
+    return users.map((user: { user_uuid: string }) => user.user_uuid);
+  }
 }
 
 export default UserModel;

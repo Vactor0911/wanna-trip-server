@@ -19,6 +19,7 @@ export const TargetTypeEnum = z.enum([
   "template",
   "user",
   "system",
+  "news",
 ]);
 
 /**
