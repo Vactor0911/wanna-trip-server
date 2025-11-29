@@ -1,6 +1,5 @@
 import { dbPool } from "../config/db";
 import UserModel from "../models/user.model";
-import TransactionHandler from "../utils/transactionHandler";
 
 class UserService {
   /**

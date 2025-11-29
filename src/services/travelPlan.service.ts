@@ -1,4 +1,4 @@
-import { PoolConnection, Pool } from "mariadb";
+import { PoolConnection } from "mariadb";
 import { v4 as uuidv4 } from "uuid";
 import axios from "axios";
 import TransactionHandler from "../utils/transactionHandler";

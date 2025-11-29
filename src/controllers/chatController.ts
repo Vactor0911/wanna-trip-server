@@ -35,7 +35,7 @@ const summarizeConversation = async (
 // 여행 계획 챗봇 대화
 export const travelPlanChatbot = async (req: Request, res: Response) => {
   try {
-    const { message, history, templateName } = req.body;
+    const { message, history } = req.body;
 
     if (!message?.trim()) {
       res
