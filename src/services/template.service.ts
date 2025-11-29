@@ -381,7 +381,9 @@ class TemplateService {
       updatedAt: template.updated_at,
       sharedCount: template.shared_count,
       thumbnailUrl: template.thumbnail_url,
-      boardCount: template.board_count ? Number(template.board_count) : undefined,
+      boardCount: template.board_count
+        ? Number(template.board_count)
+        : undefined,
       boards: template.boards?.map((board: any) => ({
         uuid: board.board_uuid,
         dayNumber: board.day_number,
@@ -496,30 +498,43 @@ class TemplateService {
       dbPool,
       async (connection) => {
         // 원본 카드 조회
-        const sourceCard = await CardModel.findByUuid(sourceCardUuid, connection);
+        const sourceCard = await CardModel.findByUuid(
+          sourceCardUuid,
+          connection
+        );
         if (!sourceCard) {
           throw new NotFoundError("원본 카드를 찾을 수 없습니다.");
         }
 
         // 원본 보드 조회
-        const sourceBoard = await BoardModel.findById(sourceCard.board_id, connection);
+        const sourceBoard = await BoardModel.findById(
+          sourceCard.board_id,
+          connection
+        );
         if (!sourceBoard) {
           throw new NotFoundError("원본 보드를 찾을 수 없습니다.");
         }
 
         // 원본 템플릿 조회
-        const sourceTemplate = await TemplateModel.findById(sourceBoard.template_id, connection);
+        const sourceTemplate = await TemplateModel.findById(
+          sourceBoard.template_id,
+          connection
+        );
         if (!sourceTemplate) {
           throw new NotFoundError("원본 템플릿을 찾을 수 없습니다.");
         }
 
-        // 원본 템플릿이 public인지 확인 (본인 템플릿이 아닌 경우)
-        if (sourceTemplate.user_id !== parseInt(userId) && sourceTemplate.privacy !== "public") {
-          throw new ForbiddenError("비공개 템플릿의 카드는 복사할 수 없습니다.");
-        }
+        // 원본 템플릿 읽기 권한 확인
+        await this.validateReadPermissionById(
+          userId,
+          sourceTemplate.template_id
+        );
 
         // 대상 보드 조회
-        const targetBoard = await BoardModel.findByUuid(targetBoardUuid, connection);
+        const targetBoard = await BoardModel.findByUuid(
+          targetBoardUuid,
+          connection
+        );
         if (!targetBoard) {
           throw new NotFoundError("대상 보드를 찾을 수 없습니다.");
         }
@@ -536,7 +551,10 @@ class TemplateService {
 
         // 원본 템플릿의 shared_count 증가 (본인 템플릿이 아닌 경우에만)
         if (sourceTemplate.user_id !== parseInt(userId)) {
-          await TemplateModel.incrementSharedCount(sourceTemplate.template_id, connection);
+          await TemplateModel.incrementSharedCount(
+            sourceTemplate.template_id,
+            connection
+          );
         }
 
         return newCardId;
@@ -560,37 +578,55 @@ class TemplateService {
       dbPool,
       async (connection) => {
         // 원본 보드 조회
-        const sourceBoard = await BoardModel.findByUuid(sourceBoardUuid, connection);
+        const sourceBoard = await BoardModel.findByUuid(
+          sourceBoardUuid,
+          connection
+        );
         if (!sourceBoard) {
           throw new NotFoundError("원본 보드를 찾을 수 없습니다.");
         }
 
         // 원본 템플릿 조회
-        const sourceTemplate = await TemplateModel.findById(sourceBoard.template_id, connection);
+        const sourceTemplate = await TemplateModel.findById(
+          sourceBoard.template_id,
+          connection
+        );
         if (!sourceTemplate) {
           throw new NotFoundError("원본 템플릿을 찾을 수 없습니다.");
         }
 
-        // 원본 템플릿이 public인지 확인 (본인 템플릿이 아닌 경우)
-        if (sourceTemplate.user_id !== parseInt(userId) && sourceTemplate.privacy !== "public") {
-          throw new ForbiddenError("비공개 템플릿의 보드는 복사할 수 없습니다.");
-        }
+        // 원본 템플릿 읽기 권한 확인
+        await this.validateReadPermissionById(
+          userId,
+          sourceTemplate.template_id
+        );
 
         // 대상 템플릿 조회
-        const targetTemplate = await TemplateModel.findByUuid(targetTemplateUuid, connection);
+        const targetTemplate = await TemplateModel.findByUuid(
+          targetTemplateUuid,
+          connection
+        );
         if (!targetTemplate) {
           throw new NotFoundError("대상 템플릿을 찾을 수 없습니다.");
         }
 
         // 대상 템플릿 수정 권한 확인
-        await this.validateEditPermissionById(userId, targetTemplate.template_id);
+        await this.validateEditPermissionById(
+          userId,
+          targetTemplate.template_id
+        );
 
         // 대상 템플릿의 마지막 day_number 조회
-        const lastDayNumber = await BoardModel.getLastDayNumber(targetTemplate.template_id, connection);
+        const lastDayNumber = await BoardModel.getLastDayNumber(
+          targetTemplate.template_id,
+          connection
+        );
 
         // 15일차 제한 확인
         if (lastDayNumber >= 15) {
-          throw new ForbiddenError("해당 템플릿은 최대 15일차까지 등록할 수 있습니다. 기존 일정을 정리한 후 다시 시도해주세요.");
+          throw new ForbiddenError(
+            "해당 템플릿은 최대 15일차까지 등록할 수 있습니다. 기존 일정을 정리한 후 다시 시도해주세요."
+          );
         }
 
         // 보드 복사
@@ -604,7 +640,10 @@ class TemplateService {
         const newBoard = await BoardModel.findByUuid(newBoardUuid, connection);
 
         // 원본 보드의 카드들 조회
-        const sourceCards = await CardModel.findAllByBoardId(sourceBoard.board_id, connection);
+        const sourceCards = await CardModel.findAllByBoardId(
+          sourceBoard.board_id,
+          connection
+        );
 
         // 각 카드 복사 (copyToBoard 메서드 사용)
         for (const sourceCard of sourceCards as any[]) {
@@ -617,7 +656,10 @@ class TemplateService {
 
         // 원본 템플릿의 shared_count 증가 (본인 템플릿이 아닌 경우에만)
         if (sourceTemplate.user_id !== parseInt(userId)) {
-          await TemplateModel.incrementSharedCount(sourceTemplate.template_id, connection);
+          await TemplateModel.incrementSharedCount(
+            sourceTemplate.template_id,
+            connection
+          );
         }
 
         return newBoardUuid;
@@ -641,29 +683,48 @@ class TemplateService {
       dbPool,
       async (connection) => {
         // 원본 템플릿 조회
-        const sourceTemplate = await TemplateModel.findByUuid(sourceTemplateUuid, connection);
+        const sourceTemplate = await TemplateModel.findByUuid(
+          sourceTemplateUuid,
+          connection
+        );
         if (!sourceTemplate) {
           throw new NotFoundError("원본 템플릿을 찾을 수 없습니다.");
         }
 
         // 원본 템플릿이 public인지 확인 (본인 템플릿이 아닌 경우)
-        if (sourceTemplate.user_id !== parseInt(userId) && sourceTemplate.privacy !== "public") {
+        if (
+          sourceTemplate.user_id !== parseInt(userId) &&
+          sourceTemplate.privacy !== "public"
+        ) {
           throw new ForbiddenError("비공개 템플릿은 복사할 수 없습니다.");
         }
 
         // 새 템플릿 생성
         const title = newTitle || `${sourceTemplate.title} (복사본)`;
-        const newTemplateUuid = await TemplateModel.create(userId, title, connection);
-        const newTemplate = await TemplateModel.findByUuid(newTemplateUuid, connection);
+        const newTemplateUuid = await TemplateModel.create(
+          userId,
+          title,
+          connection
+        );
+        const newTemplate = await TemplateModel.findByUuid(
+          newTemplateUuid,
+          connection
+        );
 
         // 기본 보드 삭제 (create 시 자동 생성된 보드)
-        const defaultBoards = await BoardModel.findAllByTemplateId(newTemplate.template_id, connection);
+        const defaultBoards = await BoardModel.findAllByTemplateId(
+          newTemplate.template_id,
+          connection
+        );
         for (const board of defaultBoards as any[]) {
           await BoardModel.deleteById(board.board_id, connection);
         }
 
         // 원본 템플릿의 보드들 조회
-        const sourceBoards = await BoardModel.findAllByTemplateId(sourceTemplate.template_id, connection);
+        const sourceBoards = await BoardModel.findAllByTemplateId(
+          sourceTemplate.template_id,
+          connection
+        );
 
         // 각 보드 복사
         for (const sourceBoard of sourceBoards as any[]) {
@@ -672,10 +733,16 @@ class TemplateService {
             sourceBoard.day_number,
             connection
           );
-          const newBoard = await BoardModel.findByUuid(newBoardUuid, connection);
+          const newBoard = await BoardModel.findByUuid(
+            newBoardUuid,
+            connection
+          );
 
           // 원본 보드의 카드들 조회
-          const sourceCards = await CardModel.findAllByBoardId(sourceBoard.board_id, connection);
+          const sourceCards = await CardModel.findAllByBoardId(
+            sourceBoard.board_id,
+            connection
+          );
 
           // 각 카드 복사 (copyToBoard 메서드 사용)
           for (const sourceCard of sourceCards as any[]) {
@@ -689,7 +756,10 @@ class TemplateService {
 
         // 원본 템플릿의 shared_count 증가 (본인 템플릿이 아닌 경우에만)
         if (sourceTemplate.user_id !== parseInt(userId)) {
-          await TemplateModel.incrementSharedCount(sourceTemplate.template_id, connection);
+          await TemplateModel.incrementSharedCount(
+            sourceTemplate.template_id,
+            connection
+          );
         }
 
         return newTemplateUuid;
@@ -703,8 +773,13 @@ class TemplateService {
    * @returns 인기 공개 템플릿 목록
    */
   static async getPopularPublicTemplates(limit: number = 5) {
-    const templates = await TemplateModel.findPopularPublicTemplates(limit, dbPool);
-    return templates.map((template: any) => this.formatPopularTemplate(template));
+    const templates = await TemplateModel.findPopularPublicTemplates(
+      limit,
+      dbPool
+    );
+    return templates.map((template: any) =>
+      this.formatPopularTemplate(template)
+    );
   }
 
   /**
@@ -757,7 +832,10 @@ class TemplateService {
    */
   static async getSharedTemplatesByUserId(userId: string) {
     // 공유 받은 템플릿 조회
-    const templates = await CollaboratorModel.findAllTemplatesByUserId(userId, dbPool);
+    const templates = await CollaboratorModel.findAllTemplatesByUserId(
+      userId,
+      dbPool
+    );
 
     // 템플릿 반환
     const formattedTemplates = (templates as any[]).map((template: any) =>
@@ -781,7 +859,9 @@ class TemplateService {
       thumbnailUrl: template.thumbnail_url,
       ownerName: template.owner_name,
       ownerProfileImage: template.owner_profile_image,
-      boardCount: template.board_count ? Number(template.board_count) : undefined,
+      boardCount: template.board_count
+        ? Number(template.board_count)
+        : undefined,
     };
   }
 }
