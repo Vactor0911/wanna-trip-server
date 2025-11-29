@@ -39,7 +39,6 @@ dotenv.config();
   "NODEMAILER_USER",
   "NODEMAILER_PASS",
   "KAKAO_CLIENT_ID",
-  
 ].forEach((key) => {
   if (!process.env[key]) {
     throw new Error(`해당 환경변수가 존재하지 않습니다.: ${key}`);
@@ -124,10 +123,10 @@ app.use(errorHandler); // 전역 오류 처리 미들웨어 등록
 
 // 소켓 서버 시작
 initializeSocketServer(httpServer);
-console.log("✅ Socket.io 서버가 초기화되었습니다.");
+console.log("Socket.io 서버가 초기화되었습니다.");
 
 // 서버 시작
 httpServer.listen(PORT, "0.0.0.0", () => {
   console.log(`서버가 ${PORT}번 포트에서 실행 중입니다.`);
-  console.log(`WebSocket 엔드포인트: ws://localhost:${PORT}`);
+  console.log(`WebSocket이 ${PORT}번 포트에서 실행중입니다.`);
 });

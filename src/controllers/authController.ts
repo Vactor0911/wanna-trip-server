@@ -897,8 +897,9 @@ export const resetPassword = async (req: Request, res: Response) => {
     await connection.commit();
 
     // 비밀번호 변경 알림 생성 (비동기)
-    NotificationService.createPasswordChangeNotification(user.user_uuid)
-      .catch((err) => console.error("비밀번호 변경 알림 생성 실패:", err));
+    NotificationService.createPasswordChangeNotification(user.user_uuid).catch(
+      (err) => console.error("비밀번호 변경 알림 생성 실패:", err)
+    );
 
     res.status(200).json({
       success: true,
@@ -1344,8 +1345,9 @@ export const updatePassword = async (req: Request, res: Response) => {
     await connection.commit();
 
     // 비밀번호 변경 알림 생성 (비동기)
-    NotificationService.createPasswordChangeNotification(user.userUuid)
-      .catch((err) => console.error("비밀번호 변경 알림 생성 실패:", err));
+    NotificationService.createPasswordChangeNotification(user.userUuid).catch(
+      (err) => console.error("비밀번호 변경 알림 생성 실패:", err)
+    );
 
     res.status(200).json({
       success: true,
@@ -1425,9 +1427,6 @@ export const deleteAccount = async (req: Request, res: Response) => {
         // 파일이 존재하는지 확인 후 삭제
         if (fs.existsSync(profileImagePath)) {
           fs.unlinkSync(profileImagePath);
-          console.log(
-            `사용자 ID ${user.userId}의 프로필 이미지 삭제: ${profileImagePath}`
-          );
         }
 
         // 모든 종류의 프로필 이미지 삭제 (확장자 상관없이)
@@ -1440,7 +1439,6 @@ export const deleteAccount = async (req: Request, res: Response) => {
             if (file.startsWith(userPrefix)) {
               const filePath = path.join(profileDir, file);
               fs.unlinkSync(filePath);
-              console.log(`사용자의 추가 프로필 이미지 삭제: ${filePath}`);
             }
           });
         }
@@ -1544,11 +1542,6 @@ const storage = multer.diskStorage({
       default:
         ext = path.extname(file.originalname) || ".jpg"; // 기본값 제공
     }
-
-    // 추후에 삭제 예정
-    console.log(
-      `파일 업로드: 타입=${file.mimetype}, 파일명=${file.originalname}, 사용할 확장자=${ext}`
-    );
 
     const fileName = `${user.userUuid}${ext}`;
     cb(null, fileName);

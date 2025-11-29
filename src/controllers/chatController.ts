@@ -48,7 +48,8 @@ export const travelPlanChatbot = async (req: Request, res: Response) => {
     if (history.length >= MAX_CONVERSATIONS * 2) {
       res.status(400).json({
         success: false,
-        message: "대화 횟수가 너무 많습니다. '여행 계획 생성' 버튼을 눌러 계획을 생성하거나, 새로운 대화를 시작해주세요.",
+        message:
+          "대화 횟수가 너무 많습니다. '여행 계획 생성' 버튼을 눌러 계획을 생성하거나, 새로운 대화를 시작해주세요.",
         limitReached: true,
       });
       return;
@@ -112,10 +113,6 @@ ${summaryContext ? `\n\n[이전 대화 요약]\n${summaryContext}` : ""}`;
     const assistantMessage = response.choices[0].message.content || "";
     const canGenerate = assistantMessage.includes("READY_TO_GENERATE");
 
-    // 토큰 사용량 로깅 (디버깅용)
-    const usage = response.usage;
-    console.log(`[Chat] 토큰 사용량 - 입력: ${usage?.prompt_tokens}, 출력: ${usage?.completion_tokens}, 총: ${usage?.total_tokens}`);
-
     // 대화 횟수 경고
     const conversationCount = Math.floor(history.length / 2) + 1;
     const isNearLimit = conversationCount >= MAX_CONVERSATIONS - 2;
@@ -156,7 +153,10 @@ export const generateTravelPlan = async (req: Request, res: Response) => {
 
     // 1. 대화 이력에서 여행 정보 추출
     const conversationText = conversationHistory
-      .map((msg: { role: string; content: string }) => `${msg.role}: ${msg.content}`)
+      .map(
+        (msg: { role: string; content: string }) =>
+          `${msg.role}: ${msg.content}`
+      )
       .join("\n");
 
     const extractResponse = await openai.chat.completions.create({
@@ -248,7 +248,11 @@ export const generateTravelPlan = async (req: Request, res: Response) => {
     const planResponse = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
-        { role: "system", content: "한국 국내 여행 계획 전문가입니다. 한국의 실제 존재하는 장소와 정확한 한국 주소를 사용하여 JSON 형식으로만 응답합니다." },
+        {
+          role: "system",
+          content:
+            "한국 국내 여행 계획 전문가입니다. 한국의 실제 존재하는 장소와 정확한 한국 주소를 사용하여 JSON 형식으로만 응답합니다.",
+        },
         { role: "user", content: planPrompt },
       ],
       max_tokens: 4000,
@@ -286,9 +290,9 @@ export const generateTravelPlan = async (req: Request, res: Response) => {
     }
 
     // 4. 네이버 API로 장소 정보 보강 (썸네일, 좌표 등)
-    console.log("[TravelPlan] 네이버 API로 장소 정보 보강 시작...");
-    const enrichedPlanJSON = await TravelPlanService.enrichPlanWithNaverAPI(planJSON);
-    console.log("[TravelPlan] 장소 정보 보강 완료");
+    const enrichedPlanJSON = await TravelPlanService.enrichPlanWithNaverAPI(
+      planJSON
+    );
 
     // 5. DB에 저장
     const templateUuid = await TravelPlanService.saveTravelPlanToDB(
@@ -319,4 +323,3 @@ export const generateTravelPlan = async (req: Request, res: Response) => {
     });
   }
 };
-

@@ -68,7 +68,6 @@ class NotificationSocket {
     try {
       const io = getSocketIO();
       io.to(`user:${userUuid}`).emit("notification:new", notification);
-      console.log(`[Notification] Sent notification to user ${userUuid}`);
     } catch (error) {
       console.error("[Notification] Failed to send notification:", error);
     }
