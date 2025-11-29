@@ -119,7 +119,7 @@ export const getPostsByPage = async (req: Request, res: Response) => {
         createdAt: post.created_at, // 작성일
       };
     });
-    
+
     // 검색 결과 반환
     res.status(200).json({
       success: true,
@@ -465,6 +465,14 @@ export const editPost = async (req: Request, res: Response) => {
         `,
         [title, content, tags ? tags.join(",") : null, templateUuid, postUuid]
       );
+
+      // 템플릿이 등록된 경우 해당 템플릿을 public으로 변경
+      if (templateUuid) {
+        await connection.query(
+          `UPDATE template SET privacy = 'public' WHERE template_uuid = ?`,
+          [templateUuid]
+        );
+      }
 
       // 트랜잭션 커밋
       await connection.commit();
@@ -1125,7 +1133,8 @@ export const toggleLike = async (req: Request, res: Response) => {
             "SELECT name FROM user WHERE user_uuid = ?",
             [userUuid]
           );
-          const actorName = currentUser.length > 0 ? currentUser[0].name : "사용자";
+          const actorName =
+            currentUser.length > 0 ? currentUser[0].name : "사용자";
 
           if (targetType === "post") {
             // 게시글 좋아요 알림
@@ -1139,7 +1148,9 @@ export const toggleLike = async (req: Request, res: Response) => {
                 userUuid,
                 actorName,
                 targetUuid
-              ).catch((err) => console.error("게시글 좋아요 알림 생성 실패:", err));
+              ).catch((err) =>
+                console.error("게시글 좋아요 알림 생성 실패:", err)
+              );
 
               // 인기 게시글 알림 체크 (1, 2, 3등 진입 시 알림)
               // 좋아요 수 기준, 동점 시 공유 수로 정렬
@@ -1186,7 +1197,9 @@ export const toggleLike = async (req: Request, res: Response) => {
                     targetUuid,
                     rankedPost.title,
                     rank
-                  ).catch((err) => console.error(`인기 게시글 ${rank}등 알림 생성 실패:`, err));
+                  ).catch((err) =>
+                    console.error(`인기 게시글 ${rank}등 알림 생성 실패:`, err)
+                  );
                 }
               }
             }
@@ -1203,7 +1216,9 @@ export const toggleLike = async (req: Request, res: Response) => {
                 actorName,
                 comment[0].post_uuid,
                 targetUuid
-              ).catch((err) => console.error("댓글 좋아요 알림 생성 실패:", err));
+              ).catch((err) =>
+                console.error("댓글 좋아요 알림 생성 실패:", err)
+              );
             }
           }
         } catch (notificationError) {
@@ -1393,7 +1408,7 @@ export const getPopularTags = async (req: Request, res: Response) => {
     // 태그별로 카운트하는 딕셔너리 선언
     const tagCounts: { [tag: string]: number } = {};
 
-    tags.forEach((row: { tag: string; }) => {
+    tags.forEach((row: { tag: string }) => {
       if (!row.tag) return;
       const splittedTags = row.tag.split(",").map((t: string) => t.trim());
       splittedTags.forEach((tag: string) => {
