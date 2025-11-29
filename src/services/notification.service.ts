@@ -1,8 +1,6 @@
 import { dbPool } from "../config/db";
 import NotificationModel, {
   CreateNotificationInput,
-  NotificationType,
-  TargetType,
 } from "../models/notification.model";
 import { getSocketIO } from "../socket";
 
