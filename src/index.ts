@@ -52,11 +52,12 @@ const app = express();
 
 // HTTP 서버 생성
 const httpServer = createServer(app);
+console.log(process.env.ENV);
 
 app.use(
   cors({
     origin:
-      process.env.NODE_ENV === "production"
+      process.env.ENV === "production"
         ? "https://vactor0911.github.io"
         : `http://localhost:${FRONT_PORT}`,
     credentials: true,
@@ -76,8 +77,7 @@ app.use(
     },
     // 개발 환경에서는 일부 설정 완화
     crossOriginResourcePolicy: {
-      policy:
-        process.env.NODE_ENV === "production" ? "same-site" : "cross-origin",
+      policy: "cross-origin",
     },
   })
 );
