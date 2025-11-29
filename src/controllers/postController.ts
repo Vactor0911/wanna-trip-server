@@ -2,6 +2,12 @@ import { Request, Response } from "express";
 import { dbPool } from "../config/db";
 import { v4 as uuidv4 } from "uuid";
 import NotificationService from "../services/notification.service";
+import TransactionHandler from "../utils/transactionHandler";
+
+// Global type declaration for viewCache
+declare global {
+  var viewCache: Map<string, number> | undefined;
+}
 
 // 페이지로 게시글 목록 조회
 export const getPostsByPage = async (req: Request, res: Response) => {
@@ -258,38 +264,66 @@ export const getPostByUuid = async (req: Request, res: Response) => {
   try {
     const { postUuid } = req.params;
 
-    // 조회수 증가 (게시글 조회 시마다 1씩 증가)
-    await dbPool.query(
-      `UPDATE post SET views = views + 1 WHERE post_uuid = ?`,
-      [postUuid]
+    const post = await TransactionHandler.executeInTransaction(
+      dbPool,
+      async (connection) => {
+        // 조회수 증가 (동일 사용자의 2초 이내 중복 조회 방지)
+        const viewerIdentifier = req.user?.userUuid || req.ip || "anonymous";
+        const viewKey = `post:${postUuid}:viewer:${viewerIdentifier}`;
+
+        // 메모리 캐시를 사용하여 중복 조회 방지 (2초 이내)
+        const now = Date.now();
+        if (!global.viewCache) {
+          global.viewCache = new Map();
+        }
+
+        const lastViewTime = global.viewCache.get(viewKey);
+        const shouldIncrementView = !lastViewTime || now - lastViewTime > 2000;
+
+        if (shouldIncrementView) {
+          await connection.execute(
+            `UPDATE post SET views = views + 1 WHERE post_uuid = ?`,
+            [postUuid]
+          );
+          global.viewCache.set(viewKey, now);
+
+          // 오래된 캐시 정리 (10초 이상 된 항목 삭제)
+          for (const [key, time] of global.viewCache.entries()) {
+            if (now - time > 10000) {
+              global.viewCache.delete(key);
+            }
+          }
+        }
+
+        // post 테이블에서 해당 UUID의 게시글 정보 가져오기
+        const posts = await connection.execute(
+          `
+            SELECT 
+              p.*, 
+              u.name AS author_name, 
+              u.profile_image AS author_profile,
+              (SELECT COUNT(*) FROM likes WHERE target_type = 'post' AND target_uuid = p.post_uuid COLLATE utf8mb4_unicode_ci) AS likes_count,
+              (SELECT EXISTS(SELECT 1 FROM likes WHERE target_type = 'post' AND target_uuid = p.post_uuid COLLATE utf8mb4_unicode_ci AND user_uuid = ? COLLATE utf8mb4_unicode_ci)) AS user_liked,
+              (SELECT COALESCE(t.shared_count, 0) FROM template t WHERE t.template_uuid COLLATE utf8mb4_unicode_ci = p.template_uuid COLLATE utf8mb4_unicode_ci LIMIT 1) AS template_shared_count
+            FROM post p
+            LEFT JOIN user u ON p.user_uuid COLLATE utf8mb4_unicode_ci = u.user_uuid
+            WHERE p.post_uuid = ?
+          `,
+          [req.user?.userUuid || null, postUuid] // 로그인한 사용자가 좋아요했는지 확인
+        );
+
+        if (posts.length === 0) {
+          res.status(404).json({
+            success: false,
+            message: "게시글을 찾을 수 없습니다.",
+          });
+          return;
+        }
+
+        const post = posts[0];
+        return post;
+      }
     );
-
-    // post 테이블에서 해당 UUID의 게시글 정보 가져오기
-    const posts = await dbPool.query(
-      `
-      SELECT 
-        p.*, 
-        u.name AS author_name, 
-        u.profile_image AS author_profile,
-        (SELECT COUNT(*) FROM likes WHERE target_type = 'post' AND target_uuid = p.post_uuid COLLATE utf8mb4_unicode_ci) AS likes_count,
-        (SELECT EXISTS(SELECT 1 FROM likes WHERE target_type = 'post' AND target_uuid = p.post_uuid COLLATE utf8mb4_unicode_ci AND user_uuid = ? COLLATE utf8mb4_unicode_ci)) AS user_liked,
-        (SELECT COALESCE(t.shared_count, 0) FROM template t WHERE t.template_uuid COLLATE utf8mb4_unicode_ci = p.template_uuid COLLATE utf8mb4_unicode_ci LIMIT 1) AS template_shared_count
-      FROM post p
-      LEFT JOIN user u ON p.user_uuid COLLATE utf8mb4_unicode_ci = u.user_uuid
-      WHERE p.post_uuid = ?
-      `,
-      [req.user?.userUuid || null, postUuid] // 로그인한 사용자가 좋아요했는지 확인
-    );
-
-    if (posts.length === 0) {
-      res.status(404).json({
-        success: false,
-        message: "게시글을 찾을 수 없습니다.",
-      });
-      return;
-    }
-
-    const post = posts[0];
 
     res.status(200).json({
       success: true,
