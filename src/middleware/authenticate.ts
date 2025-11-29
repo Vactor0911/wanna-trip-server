@@ -82,9 +82,6 @@ export const optionalAuthenticate = (
     req.user = decoded; // 사용자 정보 설정
     next();
   } catch (err) {
-    // 토큰이 유효하지 않은 경우에도 오류를 반환하지 않고 계속 진행
-    // 사용자는 인증되지 않은 상태로 간주됨
-    console.log("토큰 검증 실패 (선택적 인증):", err);
     next();
   }
 };

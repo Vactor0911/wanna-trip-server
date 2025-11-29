@@ -4,6 +4,7 @@ import { csrfProtection, limiter } from "../utils";
 import BoardController from "../controllers/board.controller";
 import { validateBody, validateParams } from "../middleware/validation";
 import {
+  clearBoardSchema,
   copyBoardSchema,
   createBoardSchema,
   deleteBoardSchema,
@@ -51,6 +52,15 @@ boardRoute.put(
   csrfProtection,
   validateParams(sortCardsSchema),
   BoardController.sortCards
+);
+
+// 보드 내 카드 전체 삭제
+boardRoute.put(
+  "/clear/:boardUuid",
+  limiter,
+  authenticateToken,
+  validateParams(clearBoardSchema),
+  BoardController.clearBoard
 );
 
 // 보드 삭제

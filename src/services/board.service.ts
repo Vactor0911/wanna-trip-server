@@ -17,11 +17,11 @@ class BoardService {
     templateUuid: string,
     dayNumber: number
   ) {
-    await TransactionHandler.executeInTransaction(
+    return await TransactionHandler.executeInTransaction(
       dbPool,
       async (connection) => {
         // 템플릿 수정 권한 확인
-        await TemplateService.validateTemplatePermissionByUuid(
+        await TemplateService.validateEditPermissionByUuid(
           userId,
           templateUuid
         );
@@ -61,23 +61,26 @@ class BoardService {
         }
 
         // 템플릿 수정 권한 확인
-        await TemplateService.validateTemplatePermissionById(
+        await TemplateService.validateEditPermissionById(
           userId,
           board.template_id
         );
 
         // 보드 삭제
         await BoardModel.delete(boardUuid, connection);
+
+        // 보드 일차 재정렬
+        await BoardModel.reorderBoards(board.template_id, connection);
       }
     );
   }
 
   /**
-   * 보드 복제
+   * 보드 초기화
    * @param userId 사용자 id
    * @param boardUuid 보드 uuid
    */
-  static async copyBoard(userId: string, boardUuid: string) {
+  static async clearBoard(userId: string, boardUuid: string) {
     await TransactionHandler.executeInTransaction(
       dbPool,
       async (connection) => {
@@ -88,7 +91,34 @@ class BoardService {
         }
 
         // 템플릿 수정 권한 확인
-        await TemplateService.validateTemplatePermissionById(
+        await TemplateService.validateEditPermissionById(
+          userId,
+          board.template_id
+        );
+
+        // 보드 초기화
+        await BoardModel.clear(board.board_id, connection);
+      }
+    );
+  }
+
+  /**
+   * 보드 복제
+   * @param userId 사용자 id
+   * @param boardUuid 보드 uuid
+   */
+  static async copyBoard(userId: string, boardUuid: string) {
+    return await TransactionHandler.executeInTransaction(
+      dbPool,
+      async (connection) => {
+        // 보드 조회
+        const board = await BoardModel.findByUuid(boardUuid, connection);
+        if (!board) {
+          throw new NotFoundError("보드를 찾을 수 없습니다.");
+        }
+
+        // 템플릿 수정 권한 확인
+        await TemplateService.validateEditPermissionById(
           userId,
           board.template_id
         );
@@ -119,13 +149,16 @@ class BoardService {
         }
 
         // 템플릿 수정 권한 확인
-        await TemplateService.validateTemplatePermissionById(
+        await TemplateService.validateEditPermissionById(
           userId,
           board.template_id
         );
 
         // 보드 이동
         await BoardModel.move(boardUuid, dayNumber, connection);
+
+        // 보드 일차 재정렬
+        await BoardModel.reorderBoards(board.template_id, connection);
       }
     );
   }
@@ -146,7 +179,7 @@ class BoardService {
         }
 
         // 템플릿 수정 권한 확인
-        await TemplateService.validateTemplatePermissionById(
+        await TemplateService.validateEditPermissionById(
           userId,
           board.template_id
         );

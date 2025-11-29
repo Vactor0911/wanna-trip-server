@@ -12,6 +12,7 @@ const allowedSymbolsForPassword = /^[a-zA-Z0-9!@#$%^&*?]*$/; // 허용된 문자
 import { dbPool } from "../config/db";
 import path from "path";
 import TemplateService from "../services/template.service";
+import NotificationService from "../services/notification.service";
 
 // 사용자 회원가입
 export const register = async (req: Request, res: Response) => {
@@ -398,6 +399,7 @@ export const kakaoLogin = async (req: Request, res: Response) => {
       message: `로그인 성공`,
       name: kakaoName,
       userId: user.user_id,
+      userUuid: user.user_uuid,
       permissions: user.permission,
       accessToken,
       loginType: "kakao",
@@ -512,6 +514,7 @@ export const googleLogin = async (req: Request, res: Response) => {
       message: `로그인 성공`,
       name: googleName,
       userId: user.user_id,
+      userUuid: user.user_uuid,
       permissions: user.permission,
       accessToken,
       loginType: "google",
@@ -893,6 +896,11 @@ export const resetPassword = async (req: Request, res: Response) => {
 
     await connection.commit();
 
+    // 비밀번호 변경 알림 생성 (비동기)
+    NotificationService.createPasswordChangeNotification(user.user_uuid).catch(
+      (err) => console.error("비밀번호 변경 알림 생성 실패:", err)
+    );
+
     res.status(200).json({
       success: true,
       message: "비밀번호가 성공적으로 변경되었습니다.",
@@ -958,6 +966,7 @@ export const refreshToken = async (req: Request, res: Response) => {
         message: "Access Token이 갱신되었습니다.",
         accessToken: newAccessToken,
         userId: decoded.userId,
+        userUuid: decoded.userUuid,
         name: decoded.name,
         permissions: decoded.permission,
       });
@@ -1234,7 +1243,7 @@ export const updateNickname = async (req: Request, res: Response) => {
 // 비밀번호 변경
 export const updatePassword = async (req: Request, res: Response) => {
   const { currentPassword, newPassword, confirmNewPassword } = req.body;
-  const user = req.user as { userId: number };
+  const user = req.user as { userId: number; userUuid: string };
   const connection = await dbPool.getConnection();
 
   try {
@@ -1335,6 +1344,11 @@ export const updatePassword = async (req: Request, res: Response) => {
 
     await connection.commit();
 
+    // 비밀번호 변경 알림 생성 (비동기)
+    NotificationService.createPasswordChangeNotification(user.userUuid).catch(
+      (err) => console.error("비밀번호 변경 알림 생성 실패:", err)
+    );
+
     res.status(200).json({
       success: true,
       message: "비밀번호가 성공적으로 변경되었습니다.",
@@ -1413,9 +1427,6 @@ export const deleteAccount = async (req: Request, res: Response) => {
         // 파일이 존재하는지 확인 후 삭제
         if (fs.existsSync(profileImagePath)) {
           fs.unlinkSync(profileImagePath);
-          console.log(
-            `사용자 ID ${user.userId}의 프로필 이미지 삭제: ${profileImagePath}`
-          );
         }
 
         // 모든 종류의 프로필 이미지 삭제 (확장자 상관없이)
@@ -1428,7 +1439,6 @@ export const deleteAccount = async (req: Request, res: Response) => {
             if (file.startsWith(userPrefix)) {
               const filePath = path.join(profileDir, file);
               fs.unlinkSync(filePath);
-              console.log(`사용자의 추가 프로필 이미지 삭제: ${filePath}`);
             }
           });
         }
@@ -1532,11 +1542,6 @@ const storage = multer.diskStorage({
       default:
         ext = path.extname(file.originalname) || ".jpg"; // 기본값 제공
     }
-
-    // 추후에 삭제 예정
-    console.log(
-      `파일 업로드: 타입=${file.mimetype}, 파일명=${file.originalname}, 사용할 확장자=${ext}`
-    );
 
     const fileName = `${user.userUuid}${ext}`;
     cb(null, fileName);

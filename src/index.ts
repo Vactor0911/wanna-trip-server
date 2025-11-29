@@ -15,7 +15,14 @@ import {
   postRoute,
   searchRoute,
   templateRoute,
+  collaboratorRoute,
+  userRouter,
+  chatRoute,
+  notificationRoute,
+  newsRoute,
 } from "./routes";
+import { initializeSocketServer } from "./socket";
+import { createServer } from "http";
 
 // .env 파일 로드
 dotenv.config();
@@ -42,6 +49,10 @@ const PORT = 3000; // 서버가 실행될 포트 번호
 const FRONT_PORT = 8080; // 프론트 서버 포트 번호
 
 const app = express();
+
+// HTTP 서버 생성
+const httpServer = createServer(app);
+
 app.use(
   cors({
     origin:
@@ -100,12 +111,22 @@ app.use("/board", boardRoute); // 보드 관련
 app.use("/card", cardRoute); // 카드 관련
 app.use("/naver-map", searchRoute); // 네이버 지도 검색
 app.use("/post", postRoute); // 게시글 관련
+app.use("/collaborator", collaboratorRoute); // 공동 작업자 관련
+app.use("/user", userRouter); // 사용자 관련
+app.use("/chat", chatRoute); // AI 챗봇 관련
+app.use("/notification", notificationRoute); // 알림 관련
+app.use("/news", newsRoute); // 공지사항 관련
 
 // *** 라우트 정의 끝 ***
 
 app.use(errorHandler); // 전역 오류 처리 미들웨어 등록
 
+// 소켓 서버 시작
+initializeSocketServer(httpServer);
+console.log("Socket.io 서버가 초기화되었습니다.");
+
 // 서버 시작
-app.listen(PORT, "0.0.0.0", () => {
+httpServer.listen(PORT, "0.0.0.0", () => {
   console.log(`서버가 ${PORT}번 포트에서 실행 중입니다.`);
+  console.log(`WebSocket이 ${PORT}번 포트에서 실행중입니다.`);
 });

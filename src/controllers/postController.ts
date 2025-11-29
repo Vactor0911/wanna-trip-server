@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { dbPool } from "../config/db";
 import { v4 as uuidv4 } from "uuid";
+import NotificationService from "../services/notification.service";
 
 // 페이지로 게시글 목록 조회
 export const getPostsByPage = async (req: Request, res: Response) => {
@@ -17,10 +18,29 @@ export const getPostsByPage = async (req: Request, res: Response) => {
     const posts = await dbPool.query(
       `
       SELECT 
-        p.post_uuid, p.title, p.tag, p.shares,
+        p.post_uuid, p.title, p.tag, p.shares, p.content, p.template_uuid, p.views, p.created_at,
         COALESCE(l.like_count, 0) AS like_count,
         IF(l2.user_uuid IS NULL, 0, 1) AS liked,
-        COALESCE(c.comments, 0) AS comments
+        COALESCE(c.comments, 0) AS comments,
+        /* 템플릿 썸네일 (게시글 내용에 이미지가 없을 때 사용) */
+        (
+          SELECT loc.thumbnail_url
+          FROM template t
+          JOIN board b ON t.template_id = b.template_id
+          JOIN card ca ON b.board_id = ca.board_id
+          JOIN location loc ON ca.card_id = loc.card_id
+          WHERE t.template_uuid COLLATE utf8mb4_unicode_ci = p.template_uuid COLLATE utf8mb4_unicode_ci
+            AND loc.thumbnail_url IS NOT NULL
+          ORDER BY b.day_number ASC, ca.order_index ASC
+          LIMIT 1
+        ) AS template_thumbnail,
+        /* 템플릿 퍼가기 수 */
+        (
+          SELECT COALESCE(t.shared_count, 0)
+          FROM template t
+          WHERE t.template_uuid COLLATE utf8mb4_unicode_ci = p.template_uuid COLLATE utf8mb4_unicode_ci
+          LIMIT 1
+        ) AS template_shared_count
       FROM post AS p
 
       /* 좋아요 수 */
@@ -61,25 +81,44 @@ export const getPostsByPage = async (req: Request, res: Response) => {
       ]
     );
 
-    // 게시글 없음
+    // 게시글 없음 - 빈 배열 반환 (검색 결과 없음 포함)
     if (posts.length === 0) {
-      res.status(404).json({
-        success: false,
-        message: "게시글을 찾을 수 없습니다.",
+      res.status(200).json({
+        success: true,
+        post: [],
+        message: "게시글이 없습니다.",
       });
       return;
     }
 
+    // 게시글 내용에서 첫 번째 이미지 URL 추출
+    const extractFirstImageUrl = (htmlContent?: string): string | null => {
+      if (!htmlContent) return null;
+      const imgRegex = /<img[^>]+src="([^">]+)"/;
+      const match = htmlContent.match(imgRegex);
+      return match ? match[1] : null;
+    };
+
     // 응답 데이터 가공
-    const response = posts.map((post: any) => ({
-      uuid: post.post_uuid,
-      title: post.title,
-      tags: post.tag ? post.tag.split(",") : [],
-      liked: req.user ? !!post.liked : false,
-      likes: Number(post.like_count || 0),
-      shares: Number(post.shares || 0),
-      comments: Number(post.comments || 0),
-    }));
+    const response = posts.map((post: any) => {
+      // 게시글 내용에서 이미지 추출, 없으면 템플릿 썸네일 사용
+      const contentImage = extractFirstImageUrl(post.content);
+      const thumbnail = contentImage || post.template_thumbnail || null;
+
+      return {
+        uuid: post.post_uuid,
+        title: post.title,
+        tags: post.tag ? post.tag.split(",") : [],
+        liked: req.user ? !!post.liked : false,
+        likes: Number(post.like_count || 0),
+        shares: Number(post.template_shared_count || 0),
+        views: Number(post.views || 0),
+        content: post.content,
+        comments: Number(post.comments || 0),
+        thumbnail, // 썸네일 (내용 이미지 > 템플릿 썸네일)
+        createdAt: post.created_at, // 작성일
+      };
+    });
 
     // 검색 결과 반환
     res.status(200).json({
@@ -97,18 +136,37 @@ export const getPostsByPage = async (req: Request, res: Response) => {
 
 // 인기 게시글 목록 조회
 export const getPopularPosts = async (req: Request, res: Response) => {
-  const RESULT_LENGTH = 10; // 조회할 인기 게시글 수
+  const RESULT_LENGTH = 3; // 조회할 인기 게시글 수
   try {
     // 좋아요 수가 많은 게시글 조회
     const posts = await dbPool.query(
       `
       SELECT 
-        p.post_uuid, p.title, p.content, p.shares,
+        p.post_uuid, p.title, p.content, p.shares, p.template_uuid, p.views,
         u.name AS author_name, 
         u.profile_image AS author_profile_image,
         COALESCE(l.like_count, 0) AS like_count,
         COALESCE(l2.liked, 0) AS liked,
-        COALESCE(c.comments, 0) AS comments
+        COALESCE(c.comments, 0) AS comments,
+        /* 템플릿 썸네일 (게시글 내용에 이미지가 없을 때 사용) */
+        (
+          SELECT loc.thumbnail_url
+          FROM template t
+          JOIN board b ON t.template_id = b.template_id
+          JOIN card ca ON b.board_id = ca.board_id
+          JOIN location loc ON ca.card_id = loc.card_id
+          WHERE t.template_uuid COLLATE utf8mb4_unicode_ci = p.template_uuid COLLATE utf8mb4_unicode_ci
+            AND loc.thumbnail_url IS NOT NULL
+          ORDER BY b.day_number ASC, ca.order_index ASC
+          LIMIT 1
+        ) AS template_thumbnail,
+        /* 템플릿 퍼가기 수 */
+        (
+          SELECT COALESCE(t.shared_count, 0)
+          FROM template t
+          WHERE t.template_uuid COLLATE utf8mb4_unicode_ci = p.template_uuid COLLATE utf8mb4_unicode_ci
+          LIMIT 1
+        ) AS template_shared_count
       FROM post AS p
 
       /* 작성자 */
@@ -152,18 +210,34 @@ export const getPopularPosts = async (req: Request, res: Response) => {
       return;
     }
 
+    // 게시글 내용에서 첫 번째 이미지 URL 추출
+    const extractFirstImageUrl = (htmlContent?: string): string | null => {
+      if (!htmlContent) return null;
+      const imgRegex = /<img[^>]+src="([^">]+)"/;
+      const match = htmlContent.match(imgRegex);
+      return match ? match[1] : null;
+    };
+
     // 응답 데이터 가공
-    const response = posts.map((post: any) => ({
-      uuid: post.post_uuid,
-      title: post.title,
-      authorName: post.author_name,
-      authorProfileImage: post.author_profile_image,
-      content: post.content,
-      liked: req.user ? !!post.liked : false,
-      likes: Number(post.like_count || 0),
-      shares: Number(post.shares || 0),
-      comments: Number(post.comments || 0),
-    }));
+    const response = posts.map((post: any) => {
+      // 게시글 내용에서 이미지 추출, 없으면 템플릿 썸네일 사용
+      const contentImage = extractFirstImageUrl(post.content);
+      const thumbnail = contentImage || post.template_thumbnail || null;
+
+      return {
+        uuid: post.post_uuid,
+        title: post.title,
+        authorName: post.author_name,
+        authorProfileImage: post.author_profile_image,
+        content: post.content,
+        liked: req.user ? !!post.liked : false,
+        likes: Number(post.like_count || 0),
+        shares: Number(post.template_shared_count || 0),
+        views: Number(post.views || 0),
+        comments: Number(post.comments || 0),
+        thumbnail, // 썸네일 (내용 이미지 > 템플릿 썸네일)
+      };
+    });
 
     // 검색 결과 반환
     res.status(200).json({
@@ -184,6 +258,12 @@ export const getPostByUuid = async (req: Request, res: Response) => {
   try {
     const { postUuid } = req.params;
 
+    // 조회수 증가 (게시글 조회 시마다 1씩 증가)
+    await dbPool.query(
+      `UPDATE post SET views = views + 1 WHERE post_uuid = ?`,
+      [postUuid]
+    );
+
     // post 테이블에서 해당 UUID의 게시글 정보 가져오기
     const posts = await dbPool.query(
       `
@@ -192,7 +272,8 @@ export const getPostByUuid = async (req: Request, res: Response) => {
         u.name AS author_name, 
         u.profile_image AS author_profile,
         (SELECT COUNT(*) FROM likes WHERE target_type = 'post' AND target_uuid = p.post_uuid COLLATE utf8mb4_unicode_ci) AS likes_count,
-        (SELECT EXISTS(SELECT 1 FROM likes WHERE target_type = 'post' AND target_uuid = p.post_uuid COLLATE utf8mb4_unicode_ci AND user_uuid = ? COLLATE utf8mb4_unicode_ci)) AS user_liked
+        (SELECT EXISTS(SELECT 1 FROM likes WHERE target_type = 'post' AND target_uuid = p.post_uuid COLLATE utf8mb4_unicode_ci AND user_uuid = ? COLLATE utf8mb4_unicode_ci)) AS user_liked,
+        (SELECT COALESCE(t.shared_count, 0) FROM template t WHERE t.template_uuid COLLATE utf8mb4_unicode_ci = p.template_uuid COLLATE utf8mb4_unicode_ci LIMIT 1) AS template_shared_count
       FROM post p
       LEFT JOIN user u ON p.user_uuid COLLATE utf8mb4_unicode_ci = u.user_uuid
       WHERE p.post_uuid = ?
@@ -225,7 +306,7 @@ export const getPostByUuid = async (req: Request, res: Response) => {
         createdAt: post.created_at,
         likes: Number(post.likes_count || 0),
         liked: req.user ? !!post.user_liked : false, // 명시적으로 로그인 유무 확인
-        shares: Number(post.shares || 0),
+        shares: Number(post.template_shared_count || 0),
         views: Number(post.views || 0),
       },
     });
@@ -291,8 +372,17 @@ export const addPost = async (req: Request, res: Response) => {
         throw new Error("게시글 작성 실패");
       }
 
+      // 템플릿이 등록된 경우 해당 템플릿을 public으로 변경
+      if (templateUuid) {
+        await connection.query(
+          `UPDATE template SET privacy = 'public' WHERE template_uuid = ?`,
+          [templateUuid]
+        );
+      }
+
       // 트랜잭션 커밋
       await connection.commit();
+      connection.release();
 
       // 작성 결과 반환
       res.status(201).json({
@@ -310,6 +400,8 @@ export const addPost = async (req: Request, res: Response) => {
     } catch (error) {
       // 오류 발생 시 롤백
       await connection.rollback();
+      connection.release();
+      throw error;
     }
   } catch (err) {
     console.error("게시글 작성 오류:", err);
@@ -373,6 +465,14 @@ export const editPost = async (req: Request, res: Response) => {
         `,
         [title, content, tags ? tags.join(",") : null, templateUuid, postUuid]
       );
+
+      // 템플릿이 등록된 경우 해당 템플릿을 public으로 변경
+      if (templateUuid) {
+        await connection.query(
+          `UPDATE template SET privacy = 'public' WHERE template_uuid = ?`,
+          [templateUuid]
+        );
+      }
 
       // 트랜잭션 커밋
       await connection.commit();
@@ -663,6 +763,47 @@ export const createComment = async (req: Request, res: Response) => {
     }
 
     const comment = newComment[0];
+
+    // 알림 생성 (비동기로 처리하여 응답 속도 영향 없게)
+    try {
+      if (parentCommentUuid) {
+        // 대댓글인 경우: 원 댓글 작성자에게 알림
+        const parentComment = await dbPool.query(
+          "SELECT user_uuid FROM post_comment WHERE comment_uuid = ?",
+          [parentCommentUuid]
+        );
+        if (parentComment.length > 0) {
+          const parentCommentOwnerUuid = parentComment[0].user_uuid;
+          NotificationService.createReplyNotification(
+            parentCommentOwnerUuid,
+            userUuid,
+            comment.author_name,
+            postUuid,
+            parentCommentUuid,
+            commentUuid
+          ).catch((err) => console.error("대댓글 알림 생성 실패:", err));
+        }
+      } else {
+        // 일반 댓글인 경우: 게시글 작성자에게 알림
+        const post = await dbPool.query(
+          "SELECT user_uuid FROM post WHERE post_uuid = ?",
+          [postUuid]
+        );
+        if (post.length > 0) {
+          const postOwnerUuid = post[0].user_uuid;
+          NotificationService.createCommentNotification(
+            postOwnerUuid,
+            userUuid,
+            comment.author_name,
+            postUuid,
+            commentUuid
+          ).catch((err) => console.error("댓글 알림 생성 실패:", err));
+        }
+      }
+    } catch (notificationError) {
+      console.error("알림 생성 중 오류:", notificationError);
+      // 알림 실패해도 댓글 작성은 성공으로 처리
+    }
 
     res.status(201).json({
       success: true,
@@ -985,6 +1126,106 @@ export const toggleLike = async (req: Request, res: Response) => {
 
         await connection.commit();
 
+        // 좋아요 알림 생성 (비동기 처리)
+        try {
+          // 현재 사용자 이름 조회
+          const currentUser = await dbPool.query(
+            "SELECT name FROM user WHERE user_uuid = ?",
+            [userUuid]
+          );
+          const actorName =
+            currentUser.length > 0 ? currentUser[0].name : "사용자";
+
+          if (targetType === "post") {
+            // 게시글 좋아요 알림
+            const post = await dbPool.query(
+              "SELECT user_uuid, title FROM post WHERE post_uuid = ?",
+              [targetUuid]
+            );
+            if (post.length > 0) {
+              NotificationService.createPostLikeNotification(
+                post[0].user_uuid,
+                userUuid,
+                actorName,
+                targetUuid
+              ).catch((err) =>
+                console.error("게시글 좋아요 알림 생성 실패:", err)
+              );
+
+              // 인기 게시글 알림 체크 (1, 2, 3등 진입 시 알림)
+              // 좋아요 수 기준, 동점 시 공유 수로 정렬
+              const popularPostsResult = await dbPool.query(
+                `SELECT 
+                  p.post_uuid,
+                  p.user_uuid,
+                  p.title,
+                  COALESCE(l.like_count, 0) AS like_count,
+                  p.shares
+                FROM post p
+                LEFT JOIN (
+                  SELECT target_uuid, COUNT(*) AS like_count
+                  FROM likes
+                  WHERE target_type = 'post'
+                  GROUP BY target_uuid
+                ) l ON p.post_uuid COLLATE utf8mb4_unicode_ci = l.target_uuid COLLATE utf8mb4_unicode_ci
+                ORDER BY like_count DESC, p.shares DESC
+                LIMIT 3`
+              );
+
+              // 현재 게시글이 1, 2, 3등에 포함되는지 확인
+              const rankIndex = popularPostsResult.findIndex(
+                (p: any) => p.post_uuid === targetUuid
+              );
+
+              if (rankIndex !== -1) {
+                const rank = rankIndex + 1; // 1, 2, 3등
+                const rankedPost = popularPostsResult[rankIndex];
+
+                // 이미 해당 순위로 알림을 받았는지 확인 (중복 알림 방지)
+                const existingNotification = await dbPool.query(
+                  `SELECT notification_id FROM notification 
+                   WHERE user_uuid = ? 
+                   AND type = 'popular_post' 
+                   AND target_uuid = ?
+                   AND JSON_EXTRACT(metadata, '$.rank') = ?`,
+                  [rankedPost.user_uuid, targetUuid, rank]
+                );
+
+                if (existingNotification.length === 0) {
+                  NotificationService.createPopularPostNotification(
+                    rankedPost.user_uuid,
+                    targetUuid,
+                    rankedPost.title,
+                    rank
+                  ).catch((err) =>
+                    console.error(`인기 게시글 ${rank}등 알림 생성 실패:`, err)
+                  );
+                }
+              }
+            }
+          } else if (targetType === "comment") {
+            // 댓글 좋아요 알림
+            const comment = await dbPool.query(
+              "SELECT user_uuid, post_uuid FROM post_comment WHERE comment_uuid = ?",
+              [targetUuid]
+            );
+            if (comment.length > 0) {
+              NotificationService.createCommentLikeNotification(
+                comment[0].user_uuid,
+                userUuid,
+                actorName,
+                comment[0].post_uuid,
+                targetUuid
+              ).catch((err) =>
+                console.error("댓글 좋아요 알림 생성 실패:", err)
+              );
+            }
+          }
+        } catch (notificationError) {
+          console.error("좋아요 알림 생성 중 오류:", notificationError);
+          // 알림 실패해도 좋아요는 성공으로 처리
+        }
+
         res.status(200).json({
           success: true,
           message: `${
@@ -1004,6 +1245,136 @@ export const toggleLike = async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       message: "좋아요 처리 중 오류가 발생했습니다.",
+    });
+  }
+};
+
+// 좋아요 한 게시글 목록 조회
+export const getLikedPosts = async (req: Request, res: Response) => {
+  const POSTS_PER_PAGE = 10; // 페이지당 게시글 수
+
+  try {
+    const userUuid = req.user?.userUuid;
+    const { page = "1" } = req.query;
+
+    // 사용자 인증 실패
+    if (!userUuid) {
+      res.status(401).json({
+        success: false,
+        message: "로그인이 필요합니다.",
+      });
+      return;
+    }
+
+    // 페이지 오프셋 계산
+    const pageNumber = parseInt(page as string, 10);
+    const pageOffset = (pageNumber - 1) * POSTS_PER_PAGE;
+
+    // 좋아요 한 게시글 목록 조회
+    const posts = await dbPool.query(
+      `
+      SELECT 
+        p.post_uuid, p.title, p.tag, p.shares, p.content, p.template_uuid,
+        u.name AS author_name,
+        u.profile_image AS author_profile_image,
+        COALESCE(l_count.like_count, 0) AS like_count,
+        1 AS liked,
+        COALESCE(c.comments, 0) AS comments,
+        l.created_at AS liked_at,
+        /* 템플릿 썸네일 (게시글 내용에 이미지가 없을 때 사용) */
+        (
+          SELECT loc.thumbnail_url
+          FROM template t
+          JOIN board b ON t.template_id = b.template_id
+          JOIN card ca ON b.board_id = ca.board_id
+          JOIN location loc ON ca.card_id = loc.card_id
+          WHERE t.template_uuid COLLATE utf8mb4_unicode_ci = p.template_uuid COLLATE utf8mb4_unicode_ci
+            AND loc.thumbnail_url IS NOT NULL
+          ORDER BY b.day_number ASC, ca.order_index ASC
+          LIMIT 1
+        ) AS template_thumbnail,
+        /* 템플릿 퍼가기 수 */
+        (
+          SELECT COALESCE(t.shared_count, 0)
+          FROM template t
+          WHERE t.template_uuid COLLATE utf8mb4_unicode_ci = p.template_uuid COLLATE utf8mb4_unicode_ci
+          LIMIT 1
+        ) AS template_shared_count
+      FROM likes AS l
+
+      /* 게시글 정보 */
+      INNER JOIN post AS p 
+        ON l.target_uuid COLLATE utf8mb4_unicode_ci = p.post_uuid COLLATE utf8mb4_unicode_ci
+
+      /* 작성자 정보 */
+      LEFT JOIN user AS u
+        ON p.user_uuid COLLATE utf8mb4_unicode_ci = u.user_uuid COLLATE utf8mb4_unicode_ci
+
+      /* 좋아요 수 */
+      LEFT JOIN (
+        SELECT target_uuid, COUNT(*) AS like_count
+        FROM likes
+        WHERE target_type = 'post'
+        GROUP BY target_uuid
+      ) AS l_count ON p.post_uuid COLLATE utf8mb4_unicode_ci = l_count.target_uuid COLLATE utf8mb4_unicode_ci
+
+      /* 댓글 수 */
+      LEFT JOIN (
+        SELECT post_uuid, COUNT(*) AS comments
+        FROM post_comment
+        GROUP BY post_uuid
+      ) AS c ON c.post_uuid COLLATE utf8mb4_unicode_ci = p.post_uuid COLLATE utf8mb4_unicode_ci
+
+      WHERE l.user_uuid = ? COLLATE utf8mb4_unicode_ci
+        AND l.target_type = 'post'
+      ORDER BY l.created_at DESC
+      LIMIT ?
+      OFFSET ?;
+      `,
+      [userUuid, POSTS_PER_PAGE, pageOffset]
+    );
+
+    // 게시글 내용에서 첫 번째 이미지 URL 추출
+    const extractFirstImageUrl = (htmlContent?: string): string | null => {
+      if (!htmlContent) return null;
+      const imgRegex = /<img[^>]+src="([^">]+)"/;
+      const match = htmlContent.match(imgRegex);
+      return match ? match[1] : null;
+    };
+
+    // 응답 데이터 가공
+    const response = posts.map((post: any) => {
+      // 게시글 내용에서 이미지 추출, 없으면 템플릿 썸네일 사용
+      const contentImage = extractFirstImageUrl(post.content);
+      const thumbnail = contentImage || post.template_thumbnail || null;
+
+      return {
+        uuid: post.post_uuid,
+        title: post.title,
+        tags: post.tag ? post.tag.split(",") : [],
+        authorName: post.author_name,
+        authorProfileImage: post.author_profile_image,
+        liked: true,
+        likes: Number(post.like_count || 0),
+        shares: Number(post.template_shared_count || 0),
+        content: post.content,
+        comments: Number(post.comments || 0),
+        thumbnail,
+        likedAt: post.liked_at,
+      };
+    });
+
+    // 검색 결과 반환
+    res.status(200).json({
+      success: true,
+      posts: response,
+      hasMore: posts.length === POSTS_PER_PAGE,
+    });
+  } catch (err) {
+    console.error("좋아요 한 게시글 목록 조회 오류:", err);
+    res.status(500).json({
+      success: false,
+      message: "좋아요 한 게시글 목록을 불러오는 중 오류가 발생했습니다.",
     });
   }
 };
@@ -1037,7 +1408,7 @@ export const getPopularTags = async (req: Request, res: Response) => {
     // 태그별로 카운트하는 딕셔너리 선언
     const tagCounts: { [tag: string]: number } = {};
 
-    tags.forEach((row: { tag: string; }) => {
+    tags.forEach((row: { tag: string }) => {
       if (!row.tag) return;
       const splittedTags = row.tag.split(",").map((t: string) => t.trim());
       splittedTags.forEach((tag: string) => {

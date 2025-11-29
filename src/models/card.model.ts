@@ -82,7 +82,7 @@ class CardModel {
     const cardUuid = uuidv4();
     const startTime = card.end_time;
     const endTime = dayjs(startTime, "HH:mm:ss").add(10, "minute");
-    await connection.execute(
+    const result = await connection.execute(
       `
       INSERT INTO card (card_uuid, board_id, content, start_time, end_time, order_index)
       VALUES (?, ?, ?, ?, ?, ?)
@@ -95,6 +95,17 @@ class CardModel {
         endTime.format("HH:mm"),
         card.order_index + 1,
       ]
+    );
+
+    // 위치 정보 복사
+    await connection.execute(
+      `
+        INSERT INTO location (card_id, title, address, latitude, longitude, category, thumbnail_url)
+        SELECT ?, title, address, latitude, longitude, category, thumbnail_url
+        FROM location
+        WHERE card_id = ?;
+      `,
+      [result.insertId, card.card_id]
     );
 
     // 생성된 카드 uuid 반환
@@ -117,6 +128,116 @@ class CardModel {
       [cardUuid]
     );
     return card;
+  }
+
+  /**
+   * 카드 id로 카드 조회
+   * @param cardId 카드 id
+   * @param connection 데이터베이스 연결 객체
+   * @returns 조회된 카드
+   */
+  static async findById(cardId: number, connection: PoolConnection | Pool) {
+    const [card] = await connection.execute(
+      `
+        SELECT *
+        FROM card
+        WHERE card_id = ?
+      `,
+      [cardId]
+    );
+    return card;
+  }
+
+  /**
+   * 카드를 다른 보드로 복사
+   * @param cardId 원본 카드 id
+   * @param targetBoardId 대상 보드 id
+   * @param connection 데이터베이스 연결 객체
+   * @returns 생성된 카드 id
+   */
+  static async copyToBoard(
+    cardId: number,
+    targetBoardId: number,
+    connection: PoolConnection | Pool
+  ) {
+    // 기존 카드 정보 조회
+    const [card] = await connection.execute(
+      `
+        SELECT *
+        FROM card
+        WHERE card_id = ?;
+      `,
+      [cardId]
+    );
+
+    if (!card) {
+      throw new Error("Card not found");
+    }
+
+    // 대상 보드의 마지막 order_index 조회
+    const [lastCard] = await connection.execute(
+      `
+        SELECT COALESCE(MAX(order_index), 0) AS max_order
+        FROM card
+        WHERE board_id = ?;
+      `,
+      [targetBoardId]
+    );
+    const newOrderIndex = (lastCard?.max_order || 0) + 1;
+
+    // 새 카드 생성
+    const cardUuid = uuidv4();
+    const result = await connection.execute(
+      `
+      INSERT INTO card (card_uuid, board_id, content, start_time, end_time, order_index, locked)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+      `,
+      [
+        cardUuid,
+        targetBoardId,
+        card.content,
+        card.start_time,
+        card.end_time,
+        newOrderIndex,
+        card.locked,
+      ]
+    );
+
+    const newCardId = Number(result.insertId);
+
+    // 위치 정보 복사
+    await connection.execute(
+      `
+        INSERT INTO location (card_id, title, address, latitude, longitude, category, thumbnail_url)
+        SELECT ?, title, address, latitude, longitude, category, thumbnail_url
+        FROM location
+        WHERE card_id = ?;
+      `,
+      [newCardId, cardId]
+    );
+
+    return newCardId;
+  }
+
+  /**
+   * 보드 id로 모든 카드 조회
+   * @param boardId 보드 id
+   * @param connection 데이터베이스 연결 객체
+   * @returns
+   */
+  static async findAllByBoardId(
+    boardId: string,
+    connection: PoolConnection | Pool
+  ) {
+    const cards = await connection.execute(
+      `
+        SELECT *
+        FROM card
+        WHERE board_id = ?
+      `,
+      [boardId]
+    );
+    return cards;
   }
 
   /**
@@ -186,8 +307,8 @@ class CardModel {
       `,
       [
         data.content,
-        data.startTime.format("HH:mm"),
-        data.endTime.format("HH:mm"),
+        data.startTime.format("HH:mm:ss"),
+        data.endTime.format("HH:mm:ss"),
         data.orderIndex,
         data.locked,
         cardId,

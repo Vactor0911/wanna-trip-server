@@ -11,7 +11,7 @@ export const limiter = rateLimit({
   standardHeaders: true, // 최신 표준 헤더 포함
   legacyHeaders: false, // 구형 헤더 비활성화
   // 동적 메시지 생성을 위한 함수 사용
-  message: (req, res) => {
+  message: (req: any, res: { getHeader: (arg0: string) => number }) => {
     const resetTime = Math.ceil(
       (res.getHeader("RateLimit-Reset") as number) / 60
     ); // 초를 분으로 변환
@@ -28,7 +28,7 @@ export const refreshTokenLimiter = rateLimit({
   max: 3000, // 15분간 3000번 요청 가능 (더 많은 요청 허용)
   standardHeaders: true,
   legacyHeaders: false,
-  message: (req, res) => {
+  message: (req: any, res: { getHeader: (arg0: string) => number }) => {
     const resetTime = Math.ceil(
       (res.getHeader("RateLimit-Reset") as number) / 60
     );
@@ -52,4 +52,18 @@ export { csrfTokenMiddleware };
  */
 export const clamp = (value: number, min: number, max: number): number => {
   return Math.max(min, Math.min(max, value));
+};
+
+/**
+ * 문자열 시간 파싱
+ * @param timeString 파싱할 시간 문자열 (형식: "HH:MM" 또는 "HH:MM:SS")
+ * @returns 파싱된 Date 객체 또는 null (유효하지 않은 형식인 경우)
+ */
+export const parseTimeString = (timeString: string): Date | null => {
+  const [hours, minutes] = timeString.split(":").map(Number);
+
+  const date = new Date();
+  date.setHours(hours, minutes, 0, 0);
+
+  return date;
 };

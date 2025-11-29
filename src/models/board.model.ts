@@ -74,7 +74,7 @@ class BoardModel {
     // 기존 카드 조회
     const cards = await connection.execute(
       `
-      SELECT content, start_time, end_time, order_index
+      SELECT card_id, content, start_time, end_time, order_index
       FROM card
       WHERE board_id = ?;
       `,
@@ -93,13 +93,14 @@ class BoardModel {
 
     // 카드 복제
     for (const card of cards) {
+      const cardUuid = uuidv4();
       await connection.execute(
         `
         INSERT INTO card (card_uuid, board_id, content, start_time, end_time, order_index)
         VALUES (?, ?, ?, ?, ?, ?);
       `,
         [
-          uuidv4(),
+          cardUuid,
           newBoard.board_id,
           card.content,
           card.start_time,
@@ -107,6 +108,45 @@ class BoardModel {
           card.order_index,
         ]
       );
+
+      // 새로 생성된 카드 ID 조회
+      const [newCard] = await connection.execute(
+        `
+        SELECT card_id
+        FROM card
+        WHERE card_uuid = ?;
+        `,
+        [cardUuid]
+      );
+
+      // 기존 카드와 연결된 장소 조회
+      const locations = await connection.execute(
+        `
+        SELECT title, address, latitude, longitude, category, thumbnail_url
+        FROM location
+        WHERE card_id = ?;
+        `,
+        [card.card_id]
+      );
+
+      // 장소 복제
+      for (const location of locations) {
+        await connection.execute(
+          `
+          INSERT INTO location (card_id, title, address, latitude, longitude, category, thumbnail_url)
+          VALUES (?, ?, ?, ?, ?, ?, ?);
+          `,
+          [
+            newCard.card_id,
+            location.title,
+            location.address,
+            location.latitude,
+            location.longitude,
+            location.category,
+            location.thumbnail_url,
+          ]
+        );
+      }
     }
 
     // 생성된 보드 UUID 반환
@@ -130,6 +170,27 @@ class BoardModel {
         WHERE board_uuid = ?;
       `,
       [boardUuid]
+    );
+    return board;
+  }
+
+  /**
+   * 보드 id로 보드 조회
+   * @param boardId 보드 id
+   * @param connection 데이터베이스 연결 객체
+   * @returns 조회된 보드
+   */
+  static async findById(
+    boardId: number,
+    connection: PoolConnection | Pool
+  ) {
+    const [board] = await connection.execute(
+      `
+        SELECT *
+        FROM board
+        WHERE board_id = ?;
+      `,
+      [boardId]
     );
     return board;
   }
@@ -173,6 +234,22 @@ class BoardModel {
   }
 
   /**
+   * 보드 초기화
+   * @param boardId 보드 id
+   * @param connection 데이터베이스 연결 객체
+   */
+  static async clear(boardId: string, connection: PoolConnection | Pool) {
+    // 보드 내 카드 삭제
+    await connection.execute(
+      `
+        DELETE FROM card
+        WHERE board_id = ?
+      `,
+      [boardId]
+    );
+  }
+
+  /**
    * 보드 이동
    * @param boardUuid 보드 uuid
    * @param dayNumber 이동할 일차
@@ -183,19 +260,46 @@ class BoardModel {
     dayNumber: number,
     connection: PoolConnection | Pool
   ) {
-    // 보드 일차 조정
-    await connection.execute(
+    // 보드 현재 일차 조회
+    const board = await connection.execute(
       `
-        UPDATE board
-        SET day_number = day_number + 1
-        WHERE day_number >= ? AND template_id = (
-          SELECT template_id
-          FROM board
-          WHERE board_uuid = ?
-        )
+        SELECT day_number
+        FROM board
+        WHERE board_uuid = ?;
       `,
-      [dayNumber, boardUuid]
+      [boardUuid]
     );
+
+    // 보드 일차 조정
+    if (board[0].day_number < dayNumber) {
+      // 오른쪽으로 이동할 때
+      await connection.execute(
+        `
+          UPDATE board
+          SET day_number = day_number - 1
+          WHERE day_number <= ? AND day_number > ? AND template_id = (
+            SELECT template_id
+            FROM board
+            WHERE board_uuid = ?
+          )
+        `,
+        [dayNumber, board[0].day_number, boardUuid]
+      );
+    } else if (board[0].day_number > dayNumber) {
+      // 왼쪽으로 이동할 때
+      await connection.execute(
+        `
+          UPDATE board
+          SET day_number = day_number + 1
+          WHERE day_number >= ? AND day_number < ? AND template_id = (
+            SELECT template_id
+            FROM board
+            WHERE board_uuid = ?
+          )
+        `,
+        [dayNumber, board[0].day_number, boardUuid]
+      );
+    }
 
     // 보드 이동
     await connection.execute(
@@ -235,6 +339,78 @@ class BoardModel {
         [orderIndex++, card.card_id]
       );
     }
+  }
+
+  /**
+   * 보드 일차 재정렬
+   * @param templateId 템플릿 id
+   * @param connection 데이터베이스 연결 객체
+   */
+  static async reorderBoards(
+    templateId: string,
+    connection: PoolConnection | Pool
+  ) {
+    // 전체 보드 일차 재정렬
+    const boards = await connection.execute(
+      `
+        SELECT board_id
+        FROM board
+        WHERE template_id = ?
+        ORDER BY day_number ASC;
+      `,
+      [templateId]
+    );
+
+    let dayNumberCounter = 1;
+    for (const board of boards) {
+      await connection.execute(
+        `
+          UPDATE board
+          SET day_number = ?
+          WHERE board_id = ?;
+        `,
+        [dayNumberCounter++, board.board_id]
+      );
+    }
+  }
+
+  /**
+   * 보드 id로 보드 삭제
+   * @param boardId 보드 id
+   * @param connection 데이터베이스 연결 객체
+   */
+  static async deleteById(
+    boardId: number,
+    connection: PoolConnection | Pool
+  ) {
+    await connection.execute(
+      `
+        DELETE FROM board
+        WHERE board_id = ?;
+      `,
+      [boardId]
+    );
+  }
+
+  /**
+   * 템플릿 내 마지막 일차 번호 조회
+   * @param templateId 템플릿 id
+   * @param connection 데이터베이스 연결 객체
+   * @returns 마지막 일차 번호
+   */
+  static async getLastDayNumber(
+    templateId: number,
+    connection: PoolConnection | Pool
+  ): Promise<number> {
+    const [result] = await connection.execute(
+      `
+        SELECT COALESCE(MAX(day_number), 0) AS last_day_number
+        FROM board
+        WHERE template_id = ?;
+      `,
+      [templateId]
+    );
+    return result?.last_day_number || 0;
   }
 }
 
